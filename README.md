@@ -10,7 +10,7 @@ A Snake × Roguelike mashup built with [Phaser 3](https://phaser.io/) and GitHub
 - **Fog of war** - raycasting FOV reveals the dungeon as you explore
 - **Enemy AI** - baddies patrol corridors and deal damage on contact
 - **Progression** - eat all the rats and kill all the baddies to unlock the staircase to the next level
-- **Retro audio** — synthesized sound effects via the Web Audio API
+- **Retro audio** - synthesized sound effects via the Web Audio API
 
 ## How to Play
 
