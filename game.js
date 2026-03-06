@@ -584,11 +584,13 @@ class GameScene extends Phaser.Scene {
       }
     }
 
-    // Baddie movement timer
-    this.baddieMoveTimer += delta;
-    if (this.baddieMoveTimer >= this.baddieMoveInterval) {
-      this.baddieMoveTimer -= this.baddieMoveInterval;
-      this.moveBaddies();
+    // Baddie movement timer (only after player starts moving)
+    if (this.moving) {
+      this.baddieMoveTimer += delta;
+      if (this.baddieMoveTimer >= this.baddieMoveInterval) {
+        this.baddieMoveTimer -= this.baddieMoveInterval;
+        this.moveBaddies();
+      }
     }
 
     // Update HUD
@@ -667,8 +669,10 @@ class GameScene extends Phaser.Scene {
     this.snake.unshift(newHead);
 
     // Check growth
+    let grewThisTick = false;
     if (this.growCount > 0) {
       this.growCount--;
+      grewThisTick = true;
     } else {
       this.snake.pop();
     }
@@ -698,14 +702,15 @@ class GameScene extends Phaser.Scene {
       }
     }
 
-    // Check baddie-head collision (damage)
+    // Check baddie-head collision (damage): always net -1 length
     for (let i = this.baddies.length - 1; i >= 0; i--) {
       if (this.baddies[i].x === newHead.x && this.baddies[i].y === newHead.y) {
-        if (this.snake.length <= 1) {
+        const pops = grewThisTick ? 2 : 1;
+        if (this.snake.length <= pops) {
           this.doGameOver();
           return;
         }
-        this.snake.pop(); // lose tail segment
+        for (let p = 0; p < pops; p++) this.snake.pop();
         break;
       }
     }
@@ -815,8 +820,40 @@ class GameScene extends Phaser.Scene {
       }
     }
 
-    const c = roomCenter(bestRoom);
-    this.staircase = { x: c.x, y: c.y };
+    // Collect unoccupied floor tiles in the farthest room
+    const candidates = [];
+    for (let dy = 0; dy < bestRoom.h; dy++) {
+      for (let dx = 0; dx < bestRoom.w; dx++) {
+        const tx = bestRoom.x + dx;
+        const ty = bestRoom.y + dy;
+        if (tx <= 0 || tx >= this.mapW - 1 || ty <= 0 || ty >= this.mapH - 1) continue;
+        if (this.grid[ty][tx] !== FLOOR) continue;
+        if (this.snake.some(s => s.x === tx && s.y === ty)) continue;
+        if (this.rats.some(r => r.x === tx && r.y === ty)) continue;
+        candidates.push({ x: tx, y: ty });
+      }
+    }
+
+    if (candidates.length > 0) {
+      const c = roomCenter(bestRoom);
+      candidates.sort((a, b) => {
+        const da = Math.abs(a.x - c.x) + Math.abs(a.y - c.y);
+        const db = Math.abs(b.x - c.x) + Math.abs(b.y - c.y);
+        return da - db;
+      });
+      this.staircase = candidates[0];
+    } else {
+      const c = roomCenter(bestRoom);
+      this.staircase = { x: c.x, y: c.y };
+    }
+
+    // Remove any rat on the staircase tile
+    for (let i = this.rats.length - 1; i >= 0; i--) {
+      if (this.rats[i].x === this.staircase.x && this.rats[i].y === this.staircase.y) {
+        this.rats.splice(i, 1);
+      }
+    }
+
     playStaircaseAppear(this.audioCtx);
   }
 
@@ -851,6 +888,12 @@ class GameScene extends Phaser.Scene {
       }
     }
 
+    // Staircase (higher priority than rats/baddies)
+    if (this.staircase) {
+      const key = this.staircase.y * this.mapW + this.staircase.x;
+      if (!entityMap[key]) entityMap[key] = { char: '>', color: COLOR_STAIRCASE };
+    }
+
     // Rats
     for (const r of this.rats) {
       const key = r.y * this.mapW + r.x;
@@ -861,12 +904,6 @@ class GameScene extends Phaser.Scene {
     for (const b of this.baddies) {
       const key = b.y * this.mapW + b.x;
       if (!entityMap[key]) entityMap[key] = { char: 'B', color: COLOR_BADDIE };
-    }
-
-    // Staircase
-    if (this.staircase) {
-      const key = this.staircase.y * this.mapW + this.staircase.x;
-      if (!entityMap[key]) entityMap[key] = { char: '>', color: COLOR_STAIRCASE };
     }
 
     for (let y = startY; y <= endY; y++) {
