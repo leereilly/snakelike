@@ -31,7 +31,7 @@ const AI_SHIFTING = 1;
 // Dreamlo leaderboard
 const DREAMLO_PRIVATE_KEY = 'ttv11a7euUSPzdG2_eUgzAo2JRyM-D7E-SweYiNIy60A';
 const DREAMLO_PUBLIC_KEY = '69aa6c668f40bc1a1450557f';
-const DREAMLO_BASE = 'http://dreamlo.com/lb';
+const DREAMLO_BASE = 'https://dreamlo.com/lb';
 const LEADERBOARD_SIZE = 10;
 
 // Directions
