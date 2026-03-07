@@ -2061,6 +2061,10 @@ class GameScene extends Phaser.Scene {
     this.baddieMoveInterval = 300;
 
     this.gameOver = false;
+    this._entityMapDirty = true;
+    this._cachedEntityMap = {};
+    this._lastHudStr = '';
+    this._lastScoreStr = '';
 
     // Run stats tracking
     this.ratsEaten = 0;
@@ -2146,6 +2150,7 @@ class GameScene extends Phaser.Scene {
       if (this.snakeMoveTimer >= this.snakeMoveInterval) {
         this.snakeMoveTimer -= this.snakeMoveInterval;
         this.moveSnake();
+        this._entityMapDirty = true;
       }
     }
 
@@ -2156,6 +2161,7 @@ class GameScene extends Phaser.Scene {
         this.baddieMoveTimer -= this.baddieMoveInterval;
         this.moveBaddies();
         this.moveBoss();
+        this._entityMapDirty = true;
       }
     }
 
@@ -2165,6 +2171,7 @@ class GameScene extends Phaser.Scene {
       if (this.projectileMoveTimer >= this.projectileMoveInterval) {
         this.projectileMoveTimer -= this.projectileMoveInterval;
         this.moveProjectiles();
+        this._entityMapDirty = true;
       }
     }
 
@@ -2181,8 +2188,15 @@ class GameScene extends Phaser.Scene {
       const secs = Math.ceil(this.activePowerup.remaining / 1000);
       hudStr += `  ${icons[this.activePowerup.type]} ${secs}s`;
     }
-    this.hudText.setText(hudStr);
-    this.scoreText.setText(`Score: ${this.currentScore}`);
+    if (hudStr !== this._lastHudStr) {
+      this.hudText.setText(hudStr);
+      this._lastHudStr = hudStr;
+    }
+    const scoreStr = `Score: ${this.currentScore}`;
+    if (scoreStr !== this._lastScoreStr) {
+      this.scoreText.setText(scoreStr);
+      this._lastScoreStr = scoreStr;
+    }
 
     // Update power-up timer
     if (this.activePowerup) {
@@ -2485,7 +2499,7 @@ class GameScene extends Phaser.Scene {
         }
         playEatSound(this.audioCtx);
         // Subtle green pulse when eating rat
-        this.cameras.main.flash(120, 0, 255, 0, false, null, null, 0.15);
+        this.cameras.main.flash(60, 0, 255, 0, false, null, null, 0.08);
         break;
       }
     }
@@ -2908,77 +2922,75 @@ class GameScene extends Phaser.Scene {
     const endX = Math.min(this.mapW - 1, Math.ceil((cam.scrollX + cam.width) / TILE_SIZE) + pad);
     const endY = Math.min(this.mapH - 1, Math.ceil((cam.scrollY + cam.height) / TILE_SIZE) + pad);
 
-    // Build entity lookup for visible area
-    const entityMap = {};
+    // Only rebuild entity lookup when entities have changed
+    if (this._entityMapDirty) {
+      this._entityMapDirty = false;
+      const entityMap = {};
 
-    // Snake
-    for (let i = 0; i < this.snake.length; i++) {
-      const s = this.snake[i];
-      const key = s.y * this.mapW + s.x;
-      if (i === 0) {
-        entityMap[key] = { char: '@', color: COLOR_SNAKE_HEAD };
-      } else if (!entityMap[key]) {
-        entityMap[key] = { char: 'o', color: COLOR_SNAKE_BODY };
-      }
-    }
-
-    // Staircase (higher priority than rats/baddies)
-    if (this.staircase) {
-      const key = this.staircase.y * this.mapW + this.staircase.x;
-      if (!entityMap[key]) entityMap[key] = { char: '>', color: COLOR_STAIRCASE };
-    }
-
-    // Rats
-    for (const r of this.rats) {
-      const key = r.y * this.mapW + r.x;
-      if (!entityMap[key]) entityMap[key] = { char: 'r', color: COLOR_RAT };
-    }
-
-    // Baddies
-    for (const b of this.baddies) {
-      const key = b.y * this.mapW + b.x;
-      if (!entityMap[key]) entityMap[key] = { char: 'B', color: COLOR_BADDIE };
-    }
-
-    // Boss (2x2)
-    if (this.boss) {
-      const bossChar = this.boss.flashing ? 'X' : 'D';
-      const bossColor = this.boss.flashing ? '#ffffff' : COLOR_BOSS;
-      for (let oy = 0; oy < 2; oy++) {
-        for (let ox = 0; ox < 2; ox++) {
-          const key = (this.boss.y + oy) * this.mapW + (this.boss.x + ox);
-          entityMap[key] = { char: bossChar, color: bossColor };
+      for (let i = 0; i < this.snake.length; i++) {
+        const s = this.snake[i];
+        const key = s.y * this.mapW + s.x;
+        if (i === 0) {
+          entityMap[key] = { char: '@', color: COLOR_SNAKE_HEAD };
+        } else if (!entityMap[key]) {
+          entityMap[key] = { char: 'o', color: COLOR_SNAKE_BODY };
         }
       }
-    }
 
-    // Lava tiles
-    for (const lava of this.lavaTiles) {
-      const key = lava.y * this.mapW + lava.x;
-      if (!entityMap[key]) entityMap[key] = { char: '~', color: COLOR_LAVA, showExplored: true };
-    }
-
-    // Trap tiles
-    for (const trap of this.trapTiles) {
-      const key = trap.y * this.mapW + trap.x;
-      if (!entityMap[key]) entityMap[key] = { char: '^', color: COLOR_TRAP, showExplored: true };
-    }
-
-    // Projectiles
-    for (const p of this.projectiles) {
-      const key = p.y * this.mapW + p.x;
-      if (!entityMap[key]) entityMap[key] = { char: '*', color: '#ffffff' };
-    }
-
-    // Power-ups
-    for (const pu of this.powerups) {
-      const key = pu.y * this.mapW + pu.x;
-      if (!entityMap[key]) {
-        const chars = { speed: '*', shield: '+', phase: '~' };
-        const colors = { speed: COLOR_POWERUP_SPEED, shield: COLOR_POWERUP_SHIELD, phase: COLOR_POWERUP_PHASE };
-        entityMap[key] = { char: chars[pu.type], color: colors[pu.type] };
+      if (this.staircase) {
+        const key = this.staircase.y * this.mapW + this.staircase.x;
+        if (!entityMap[key]) entityMap[key] = { char: '>', color: COLOR_STAIRCASE };
       }
+
+      for (const r of this.rats) {
+        const key = r.y * this.mapW + r.x;
+        if (!entityMap[key]) entityMap[key] = { char: 'r', color: COLOR_RAT };
+      }
+
+      for (const b of this.baddies) {
+        const key = b.y * this.mapW + b.x;
+        if (!entityMap[key]) entityMap[key] = { char: 'B', color: COLOR_BADDIE };
+      }
+
+      if (this.boss) {
+        const bossChar = this.boss.flashing ? 'X' : 'D';
+        const bossColor = this.boss.flashing ? '#ffffff' : COLOR_BOSS;
+        for (let oy = 0; oy < 2; oy++) {
+          for (let ox = 0; ox < 2; ox++) {
+            const key = (this.boss.y + oy) * this.mapW + (this.boss.x + ox);
+            entityMap[key] = { char: bossChar, color: bossColor };
+          }
+        }
+      }
+
+      for (const lava of this.lavaTiles) {
+        const key = lava.y * this.mapW + lava.x;
+        if (!entityMap[key]) entityMap[key] = { char: '~', color: COLOR_LAVA, showExplored: true };
+      }
+
+      for (const trap of this.trapTiles) {
+        const key = trap.y * this.mapW + trap.x;
+        if (!entityMap[key]) entityMap[key] = { char: '^', color: COLOR_TRAP, showExplored: true };
+      }
+
+      for (const p of this.projectiles) {
+        const key = p.y * this.mapW + p.x;
+        if (!entityMap[key]) entityMap[key] = { char: '*', color: '#ffffff' };
+      }
+
+      for (const pu of this.powerups) {
+        const key = pu.y * this.mapW + pu.x;
+        if (!entityMap[key]) {
+          const chars = { speed: '*', shield: '+', phase: '~' };
+          const colors = { speed: COLOR_POWERUP_SPEED, shield: COLOR_POWERUP_SHIELD, phase: COLOR_POWERUP_PHASE };
+          entityMap[key] = { char: chars[pu.type], color: colors[pu.type] };
+        }
+      }
+
+      this._cachedEntityMap = entityMap;
     }
+
+    const entityMap = this._cachedEntityMap;
 
     for (let y = startY; y <= endY; y++) {
       for (let x = startX; x <= endX; x++) {
