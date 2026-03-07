@@ -737,6 +737,18 @@ class TransitionScene extends Phaser.Scene {
       baddies: baddiesArr
     };
 
+    // Find a floor tile adjacent to the snake for the intro staircase
+    const tryDirs = [DIR.RIGHT, DIR.DOWN, DIR.LEFT, DIR.UP];
+    this.introStairDir = null;
+    for (const d of tryDirs) {
+      const tx = snakeX + d.x;
+      const ty = snakeY + d.y;
+      if (tx > 0 && tx < mapW - 1 && ty > 0 && ty < mapH - 1 && grid[ty][tx] === FLOOR) {
+        this.introStairDir = d;
+        break;
+      }
+    }
+
     // ======== Target screen positions ========
     const gameCamX = snakeX * TILE_SIZE - W / 2;
     const gameCamY = snakeY * TILE_SIZE - H / 2;
@@ -1053,35 +1065,78 @@ class TransitionScene extends Phaser.Scene {
       });
     }
 
-    // Camera shake + green flash → start game immediately (no fade)
-    this.time.delayedCall(1200, () => {
-      this.cameras.main.shake(250, 0.008);
-    });
+    // After morph: show staircase, auto-walk @ into it, then show dungeon message
+    const stairDir = this.introStairDir;
+    if (stairDir) {
+      const stairSX = (snakeX + stairDir.x) * TILE_SIZE - gameCamX;
+      const stairSY = (snakeY + stairDir.y) * TILE_SIZE - gameCamY;
 
-    const flashRect = this.add.rectangle(cx, cy, W + 200, H + 200, 0x00ff00, 0).setDepth(100);
-    this.time.delayedCall(1300, () => {
-      this.tweens.add({
-        targets: flashRect,
-        alpha: { from: 0, to: 0.5 },
-        duration: 80, yoyo: true, hold: 50,
-        onComplete: () => this._startGame()
+      // Show staircase after walls settle
+      const stairObj = this.add.text(stairSX + TILE_SIZE / 2, stairSY + TILE_SIZE / 2, '>', {
+        fontFamily: 'monospace', fontSize: '16px', color: COLOR_STAIRCASE
+      }).setOrigin(0.5).setDepth(20).setAlpha(0);
+
+      this.time.delayedCall(1100, () => {
+        this.tweens.add({ targets: stairObj, alpha: 1, duration: 300, ease: 'Sine.easeIn' });
       });
+
+      // Auto-walk @ into the staircase
+      this.time.delayedCall(1600, () => {
+        if (atObj && atObj.active) {
+          this.tweens.add({
+            targets: atObj,
+            x: stairSX + TILE_SIZE / 2,
+            y: stairSY + TILE_SIZE / 2,
+            duration: 300,
+            ease: 'Linear',
+            onComplete: () => {
+              stairObj.setAlpha(0);
+              this.cameras.main.shake(200, 0.006);
+              this._showDungeonMessage();
+            }
+          });
+        } else {
+          this._showDungeonMessage();
+        }
+      });
+    } else {
+      // Fallback: no adjacent floor tile found, go straight to game
+      this.time.delayedCall(1400, () => this._startGame());
+    }
+
+    this.initialDirection = null;
+  }
+
+  _showDungeonMessage() {
+    const W = this.cameras.main.width;
+    const H = this.cameras.main.height;
+    const cx = W / 2;
+    const cy = H / 2;
+
+    const overlay = this.add.rectangle(cx, cy, W + 200, H + 200, 0x000000, 0.85).setDepth(200);
+
+    const msgText = this.add.text(cx, cy - 20,
+      'You descend into the castle dungeon.\nThe walls are etched with murals\nof ancient sultans...', {
+      fontFamily: 'monospace',
+      fontSize: '18px',
+      color: '#ffcc00',
+      align: 'center',
+      lineSpacing: 8
+    }).setOrigin(0.5).setDepth(201);
+
+    const continueText = this.add.text(cx, cy + 60, 'Press any key to continue', {
+      fontFamily: 'monospace',
+      fontSize: '14px',
+      color: '#888888'
+    }).setOrigin(0.5).setDepth(201);
+
+    this.tweens.add({
+      targets: continueText, alpha: 0.3,
+      duration: 600, yoyo: true, repeat: -1
     });
 
-    // Track initial direction from player input during transition
-    this.initialDirection = null;
-    const dirMap = {
-      ArrowUp: DIR.UP, ArrowDown: DIR.DOWN, ArrowLeft: DIR.LEFT, ArrowRight: DIR.RIGHT,
-      w: DIR.UP, W: DIR.UP, s: DIR.DOWN, S: DIR.DOWN,
-      a: DIR.LEFT, A: DIR.LEFT, d: DIR.RIGHT, D: DIR.RIGHT
-    };
-
-    // Allow skipping after a brief delay; directional keys also set initial move
     this.time.delayedCall(300, () => {
-      this.input.keyboard.on('keydown', (event) => {
-        if (dirMap[event.key]) {
-          this.initialDirection = dirMap[event.key];
-        }
+      this.input.keyboard.once('keydown', () => {
         this._startGame();
       });
     });
