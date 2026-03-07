@@ -402,6 +402,7 @@ class TitleScene extends Phaser.Scene {
     this.flameChars = [];
     this.flameEdgeChars = [];
     this.flameSet = new Set();
+    this.handleChars = [];
     this.showTitle();
   }
 
@@ -413,6 +414,7 @@ class TitleScene extends Phaser.Scene {
     this.flameChars = [];
     this.flameEdgeChars = [];
     this.flameSet = new Set();
+    this.handleChars = [];
     this.promptText = null;
   }
 
@@ -434,7 +436,7 @@ class TitleScene extends Phaser.Scene {
     const bottomRows = 2;
 
     // Torch centered in each side wall, radius = half wall minus 1
-    const torchRow = solidTopRows + battlementHeight + 14;
+    const torchRow = solidTopRows + battlementHeight + 10;
     const torchLeftC = Math.floor(wallThick / 2);
     const torchRightC = cols - Math.floor(wallThick / 2) - 1;
 
@@ -493,7 +495,7 @@ class TitleScene extends Phaser.Scene {
     }
 
     // Two torch flames on inner walls
-    const flameRadius = Math.floor(wallThick / 2) - 1;
+    const flameRadius = (Math.floor(wallThick / 2) - 1) / 2;
     const flameCenters = [
       { r: torchRow, c: torchLeftC },
       { r: torchRow, c: torchRightC }
@@ -515,6 +517,18 @@ class TitleScene extends Phaser.Scene {
     }
 
     this.flameSet = new Set(this.flameChars.map(fc => fc.obj));
+
+    // Torch wood handles — 1 char wide, 3 chars tall below each flame center
+    this.handleChars = [];
+    const handleStyle = { fontFamily: 'monospace', fontSize: fontSize + 'px', color: '#8B4513' };
+    for (const center of flameCenters) {
+      for (let i = 1; i <= 3; i++) {
+        const hr = center.r + flameRadius + i;
+        const hc = center.c;
+        const t = this.add.text(hc * charW, hr * charH, '#', { ...handleStyle });
+        this.handleChars.push(t);
+      }
+    }
 
     this.borderFlickerTimer = 0;
     this.flameTimer = 0;
@@ -649,6 +663,11 @@ class TitleScene extends Phaser.Scene {
         const hex = gray.toString(16).padStart(2, '0');
         obj.setColor('#' + hex + hex + hex);
         obj.setAlpha(0.7 + Math.random() * 0.3);
+      }
+      // Subtle warm glow on torch handles
+      const woodColors = ['#8B4513', '#7B3F10', '#9B4F1A', '#6B3510'];
+      for (const obj of this.handleChars) {
+        obj.setColor(woodColors[Math.floor(Math.random() * woodColors.length)]);
       }
     }
   }
