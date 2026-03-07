@@ -398,6 +398,10 @@ class TitleScene extends Phaser.Scene {
       this.leaderboardEntries = [];
     });
 
+    this.wallChars = [];
+    this.flameChars = [];
+    this.flameEdgeChars = [];
+    this.flameSet = new Set();
     this.showTitle();
   }
 
@@ -405,6 +409,115 @@ class TitleScene extends Phaser.Scene {
     this.children.removeAll();
     this.input.keyboard.removeAllListeners();
     if (this.switchTimer) { this.switchTimer.remove(); this.switchTimer = null; }
+    this.wallChars = [];
+    this.flameChars = [];
+    this.flameEdgeChars = [];
+    this.flameSet = new Set();
+    this.promptText = null;
+  }
+
+  createBorder() {
+    const fontSize = 14;
+    const charW = 8.4;
+    const charH = 16;
+    const w = this.cameras.main.width;
+    const h = this.cameras.main.height;
+    const cols = Math.floor(w / charW);
+    const rows = Math.floor(h / charH);
+
+    // Castle layout: battlements at top, solid walls on sides and bottom
+    const wallThick = 12;
+    const battlementHeight = 2;
+    const merlonWidth = 4;
+    const crenelWidth = 4;
+    const solidTopRows = 2;
+    const bottomRows = 2;
+
+    // Torch centered in each side wall, radius = half wall minus 1
+    const torchRow = solidTopRows + battlementHeight + 14;
+    const torchLeftC = Math.floor(wallThick / 2);
+    const torchRightC = cols - Math.floor(wallThick / 2) - 1;
+
+    const grid = [];
+    for (let r = 0; r < rows; r++) {
+      let row = '';
+      for (let c = 0; c < cols; c++) {
+        // Bottom solid wall
+        if (r >= rows - bottomRows) {
+          row += '#'; continue;
+        }
+        // Top parapet (solid rows just below battlements)
+        if (r >= battlementHeight && r < battlementHeight + solidTopRows) {
+          row += '#'; continue;
+        }
+        // Battlements (alternating merlons and crenels, flush with side walls)
+        if (r < battlementHeight) {
+          if (c < wallThick || c >= cols - wallThick) {
+            row += '#';
+          } else {
+            const inner = c - wallThick;
+            const period = merlonWidth + crenelWidth;
+            const phase = inner % period;
+            if (phase < merlonWidth) {
+              row += '#';
+            } else {
+              row += ' ';
+            }
+          }
+          continue;
+        }
+        // Left wall
+        if (c < wallThick) {
+          row += '#'; continue;
+        }
+        // Right wall
+        if (c >= cols - wallThick) {
+          row += '#'; continue;
+        }
+        // Interior is empty
+        row += ' ';
+      }
+      grid.push(row);
+    }
+
+    // Render every '#' as its own text object
+    this.wallChars = [];
+    const style = { fontFamily: 'monospace', fontSize: fontSize + 'px', color: '#444444' };
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        if (grid[r][c] === '#') {
+          const t = this.add.text(c * charW, r * charH, '#', { ...style });
+          this.wallChars.push({ obj: t, r, c });
+        }
+      }
+    }
+
+    // Two torch flames on inner walls
+    const flameRadius = Math.floor(wallThick / 2) - 1;
+    const flameCenters = [
+      { r: torchRow, c: torchLeftC },
+      { r: torchRow, c: torchRightC }
+    ];
+
+    this.flameChars = [];
+    this.flameEdgeChars = [];
+    for (const center of flameCenters) {
+      for (const wc of this.wallChars) {
+        const dr = wc.r - center.r;
+        const dc = wc.c - center.c;
+        const dist = Math.sqrt(dr * dr + dc * dc);
+        if (dist < flameRadius) {
+          this.flameChars.push({ obj: wc.obj, dist, center });
+        } else if (dist >= flameRadius && dist < flameRadius + 1.5) {
+          this.flameEdgeChars.push(wc.obj);
+        }
+      }
+    }
+
+    this.flameSet = new Set(this.flameChars.map(fc => fc.obj));
+
+    this.borderFlickerTimer = 0;
+    this.flameTimer = 0;
   }
 
   addStartListener() {
@@ -416,6 +529,7 @@ class TitleScene extends Phaser.Scene {
 
   showTitle() {
     this.clearScreen();
+    this.createBorder();
     const cx = this.cameras.main.centerX;
     const cy = this.cameras.main.centerY;
 
@@ -423,7 +537,7 @@ class TitleScene extends Phaser.Scene {
       fontFamily: 'monospace', fontSize: '48px', color: '#00ff00'
     }).setOrigin(0.5);
 
-    this.add.text(cx, cy + 30, 'Press any key to start', {
+    this.promptText = this.add.text(cx, cy + 30, 'Press any key to start', {
       fontFamily: 'monospace', fontSize: '18px', color: '#888888'
     }).setOrigin(0.5);
 
@@ -440,6 +554,7 @@ class TitleScene extends Phaser.Scene {
 
   showTitleLeaderboard() {
     this.clearScreen();
+    this.createBorder();
     const cx = this.cameras.main.centerX;
     const cy = this.cameras.main.centerY;
 
@@ -473,7 +588,7 @@ class TitleScene extends Phaser.Scene {
     }
 
     const bottom = this.cameras.main.height - 30;
-    this.add.text(cx, bottom, 'Press any key to start', {
+    this.promptText = this.add.text(cx, bottom, 'Press any key to start', {
       fontFamily: 'monospace', fontSize: '18px', color: '#888888'
     }).setOrigin(0.5);
 
@@ -482,6 +597,60 @@ class TitleScene extends Phaser.Scene {
     this.switchTimer = this.time.delayedCall(8000, () => {
       this.showTitle();
     });
+  }
+
+  update(time, delta) {
+    if (!this.wallChars || this.wallChars.length === 0) return;
+
+    this.borderFlickerTimer += delta;
+    this.flameTimer += delta;
+
+    // Pulse "Press any key"
+    if (this.promptText) {
+      const pulse = Math.sin(time * 0.003) * 0.35 + 0.65;
+      this.promptText.setAlpha(pulse);
+    }
+
+    // Sparse wall flicker — only 3-6 random non-flame '#'s shift shade each tick
+    if (this.borderFlickerTimer > 180) {
+      this.borderFlickerTimer = 0;
+      const count = 3 + Math.floor(Math.random() * 4);
+      for (let i = 0; i < count; i++) {
+        const wc = this.wallChars[Math.floor(Math.random() * this.wallChars.length)];
+        if (!this.flameSet.has(wc.obj)) {
+          const gray = 30 + Math.floor(Math.random() * 50);
+          const hex = gray.toString(16).padStart(2, '0');
+          wc.obj.setColor('#' + hex + hex + hex);
+          wc.obj.setAlpha(0.5 + Math.random() * 0.5);
+        }
+      }
+    }
+
+    // Flame glow — every 65ms
+    if (this.flameTimer > 65) {
+      this.flameTimer = 0;
+      const flameColors = [
+        '#ff0000', '#ff1a00', '#ff3300', '#ff4d00',
+        '#ff6600', '#ff8800', '#ffaa00', '#ffbb00',
+        '#ffcc00', '#ffdd00', '#ffee00', '#ffff00'
+      ];
+      const maxDist = Math.max(1, Math.floor(12 / 2) - 1);
+      for (const fc of this.flameChars) {
+        const intensity = 1 - (fc.dist / maxDist);
+        const jitter = (Math.random() - 0.3) * 0.4;
+        const t = Math.max(0, Math.min(1, intensity + jitter));
+        const ci = Math.floor(t * (flameColors.length - 1));
+        fc.obj.setColor(flameColors[ci]);
+        fc.obj.setAlpha(0.4 + t * 0.6);
+      }
+      // Keep edge chars always gray to border the flame
+      for (const obj of this.flameEdgeChars) {
+        const gray = 50 + Math.floor(Math.random() * 30);
+        const hex = gray.toString(16).padStart(2, '0');
+        obj.setColor('#' + hex + hex + hex);
+        obj.setAlpha(0.7 + Math.random() * 0.3);
+      }
+    }
   }
 }
 
