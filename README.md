@@ -1,6 +1,8 @@
-# 🐍 SN@KELIKE
-
-![](logo.jpg)
+<picture>
+     <source media="(prefers-color-scheme: dark)" srcset="snakelike-dark.svg">
+     <source media="(prefers-color-scheme: light)" srcset="snakelike-light.svg">
+     <img alt="GitHub contribution graph snake game" src="snakelike-light.svg">
+   </picture>
 
 A Snake × Roguelike mashup built with [Phaser 3](https://phaser.io/) and GitHub Copilot Coding Agent. Guide your snake through procedurally generated dungeons, eat rats to grow, avoid baddies, and descend deeper via staircases. Built for the [7DRL Challenge](https://itch.io/jam/7drl-challenge-2026).
 

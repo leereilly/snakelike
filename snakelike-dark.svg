@@ -1,0 +1,73 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 250 52" width="250" height="52" overflow="hidden" role="img" aria-label="SN@KELIKE">
+  <title>SN@KELIKE</title>
+  <style>
+    .c {
+      font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
+      font-size: 42px;
+      font-weight: 700;
+      fill: #e6edf3;
+    }
+    .at { animation: at 8s linear infinite; }
+    .k1 { animation: k1 8s linear infinite; }
+    .e1 { animation: e1 8s linear infinite; }
+    .l1 { animation: l1 8s linear infinite; }
+    .i1 { animation: i1 8s linear infinite; }
+    .k2 { animation: k2 8s linear infinite; }
+    .e2 { animation: e2 8s linear infinite; }
+
+    @keyframes at {
+      0%,     6.24%   { transform: translateX(0); }
+      6.25%,  12.49%  { transform: translateX(25px); }
+      12.5%,  18.74%  { transform: translateX(50px); }
+      18.75%, 24.99%  { transform: translateX(75px); }
+      25%,    31.24%  { transform: translateX(100px); }
+      31.25%, 37.49%  { transform: translateX(125px); }
+      37.5%,  49.99%  { transform: translateX(150px); }
+      50%,    56.24%  { transform: translateX(125px); }
+      56.25%, 62.49%  { transform: translateX(100px); }
+      62.5%,  68.74%  { transform: translateX(75px); }
+      68.75%, 74.99%  { transform: translateX(50px); }
+      75%,    81.24%  { transform: translateX(25px); }
+      81.25%, 100%    { transform: translateX(0); }
+    }
+    @keyframes k1 {
+      0%,     6.24%   { transform: translateX(0); }
+      6.25%,  81.24%  { transform: translateX(-25px); }
+      81.25%, 100%    { transform: translateX(0); }
+    }
+    @keyframes e1 {
+      0%,     12.49%  { transform: translateX(0); }
+      12.5%,  74.99%  { transform: translateX(-25px); }
+      75%,    100%    { transform: translateX(0); }
+    }
+    @keyframes l1 {
+      0%,     18.74%  { transform: translateX(0); }
+      18.75%, 68.74%  { transform: translateX(-25px); }
+      68.75%, 100%    { transform: translateX(0); }
+    }
+    @keyframes i1 {
+      0%,     24.99%  { transform: translateX(0); }
+      25%,    62.49%  { transform: translateX(-25px); }
+      62.5%,  100%    { transform: translateX(0); }
+    }
+    @keyframes k2 {
+      0%,     31.24%  { transform: translateX(0); }
+      31.25%, 56.24%  { transform: translateX(-25px); }
+      56.25%, 100%    { transform: translateX(0); }
+    }
+    @keyframes e2 {
+      0%,     37.49%  { transform: translateX(0); }
+      37.5%,  49.99%  { transform: translateX(-25px); }
+      50%,    100%    { transform: translateX(0); }
+    }
+  </style>
+  <text class="c" x="10" y="40">S</text>
+  <text class="c" x="35" y="40">N</text>
+  <text class="c at" x="60" y="40">@</text>
+  <text class="c k1" x="85" y="40">K</text>
+  <text class="c e1" x="110" y="40">E</text>
+  <text class="c l1" x="135" y="40">L</text>
+  <text class="c i1" x="160" y="40">I</text>
+  <text class="c k2" x="185" y="40">K</text>
+  <text class="c e2" x="210" y="40">E</text>
+</svg>
