@@ -537,7 +537,7 @@ class TitleScene extends Phaser.Scene {
   addStartListener() {
     this.input.keyboard.on('keydown', () => {
       if (this.switchTimer) { this.switchTimer.remove(); this.switchTimer = null; }
-      this.scene.start('GameScene', { level: 1, snakeLength: 1 });
+      this.scene.start('TransitionScene', { level: 1, snakeLength: 1 });
     });
   }
 
@@ -670,6 +670,506 @@ class TitleScene extends Phaser.Scene {
         obj.setColor(woodColors[Math.floor(Math.random() * woodColors.length)]);
       }
     }
+  }
+}
+
+// ============================================================
+// TRANSITION SCENE — Title → Game cinematic
+// ============================================================
+
+class TransitionScene extends Phaser.Scene {
+  constructor() { super('TransitionScene'); }
+
+  init(data) {
+    this.level = data.level || 1;
+    this.snakeLength = data.snakeLength || 1;
+    this.baddiesKilled = data.baddiesKilled || 0;
+    this.maxSnakeLength = data.maxSnakeLength || 1;
+    this.currentScore = data.score || 0;
+  }
+
+  create() {
+    const W = this.cameras.main.width;
+    const H = this.cameras.main.height;
+    const cx = W / 2;
+    const cy = H / 2;
+    this.skipDone = false;
+
+    // ======== Generate dungeon & entities ========
+    const mapW = 35 + 5 * this.level;
+    const mapH = 27 + 3 * this.level;
+    const dungeon = generateDungeon(mapW, mapH);
+    const grid = dungeon.grid;
+    const rooms = dungeon.rooms;
+
+    const startRoom = rooms[Math.floor(Math.random() * rooms.length)];
+    const snakeX = Math.floor(startRoom.x + startRoom.w / 2);
+    const snakeY = Math.floor(startRoom.y + startRoom.h / 2);
+    const snakeArr = [{ x: snakeX, y: snakeY }];
+    if (this.snakeLength > 1) {
+      for (let i = 1; i < this.snakeLength; i++) {
+        snakeArr.push({ x: snakeX, y: snakeY });
+      }
+    }
+
+    const numRats = 4 + this.level;
+    const ratsArr = [];
+    for (let i = 0; i < numRats; i++) {
+      ratsArr.push(this._findFloor(grid, mapW, mapH, rooms, snakeArr, ratsArr, []));
+    }
+
+    const numBaddies = 4 + this.level;
+    const allDirs = [DIR.UP, DIR.DOWN, DIR.LEFT, DIR.RIGHT];
+    const baddiesArr = [];
+    for (let i = 0; i < numBaddies; i++) {
+      const pos = this._findFloor(grid, mapW, mapH, rooms, snakeArr, ratsArr, baddiesArr);
+      baddiesArr.push({
+        x: pos.x, y: pos.y,
+        primaryDirection: allDirs[Math.floor(Math.random() * 4)],
+        state: AI_MOVING, shiftRemaining: 0, shiftDirection: DIR.LEFT
+      });
+    }
+
+    this.dungeonData = {
+      grid, rooms, mapW, mapH,
+      snakeX, snakeY,
+      rats: ratsArr,
+      baddies: baddiesArr
+    };
+
+    // ======== Target screen positions ========
+    const gameCamX = snakeX * TILE_SIZE - W / 2;
+    const gameCamY = snakeY * TILE_SIZE - H / 2;
+    const snakeScreenX = snakeX * TILE_SIZE - gameCamX;
+    const snakeScreenY = snakeY * TILE_SIZE - gameCamY;
+
+    const pad = 3;
+    const tSX = Math.max(0, Math.floor(gameCamX / TILE_SIZE) - pad);
+    const tSY = Math.max(0, Math.floor(gameCamY / TILE_SIZE) - pad);
+    const tEX = Math.min(mapW - 1, Math.ceil((gameCamX + W) / TILE_SIZE) + pad);
+    const tEY = Math.min(mapH - 1, Math.ceil((gameCamY + H) / TILE_SIZE) + pad);
+
+    const wallTargets = [];
+    for (let ty = tSY; ty <= tEY; ty++) {
+      for (let tx = tSX; tx <= tEX; tx++) {
+        if (grid[ty][tx] === WALL) {
+          wallTargets.push({ x: tx * TILE_SIZE - gameCamX, y: ty * TILE_SIZE - gameCamY });
+        }
+      }
+    }
+    for (let i = wallTargets.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [wallTargets[i], wallTargets[j]] = [wallTargets[j], wallTargets[i]];
+    }
+
+    const baddieScreenTargets = baddiesArr.map(b => ({
+      x: b.x * TILE_SIZE - gameCamX, y: b.y * TILE_SIZE - gameCamY
+    }));
+    const ratScreenTargets = ratsArr.map(r => ({
+      x: r.x * TILE_SIZE - gameCamX, y: r.y * TILE_SIZE - gameCamY
+    }));
+
+    // ======== Recreate title screen ========
+    const fontSize = 14;
+    const charW = 8.4;
+    const charH = 16;
+    const cols = Math.floor(W / charW);
+    const rowCount = Math.floor(H / charH);
+    const wallThick = 12;
+    const battleH = 2;
+    const merlonW = 4;
+    const crenelW = 4;
+    const solidTop = 2;
+    const botRows = 2;
+    const torchR = solidTop + battleH + 10;
+    const torchLC = Math.floor(wallThick / 2);
+    const torchRC = cols - Math.floor(wallThick / 2) - 1;
+    const fRadius = (Math.floor(wallThick / 2) - 1) / 2;
+    const fCenters = [{ r: torchR, c: torchLC }, { r: torchR, c: torchRC }];
+
+    const bGrid = [];
+    for (let r = 0; r < rowCount; r++) {
+      let row = '';
+      for (let c = 0; c < cols; c++) {
+        if (r >= rowCount - botRows) { row += '#'; continue; }
+        if (r >= battleH && r < battleH + solidTop) { row += '#'; continue; }
+        if (r < battleH) {
+          if (c < wallThick || c >= cols - wallThick) row += '#';
+          else row += (c - wallThick) % (merlonW + crenelW) < merlonW ? '#' : ' ';
+          continue;
+        }
+        if (c < wallThick || c >= cols - wallThick) { row += '#'; continue; }
+        row += ' ';
+      }
+      bGrid.push(row);
+    }
+
+    const wallChars = [];
+    const flameChars = [];
+    const bStyle = { fontFamily: 'monospace', fontSize: fontSize + 'px', color: '#444444' };
+    for (let r = 0; r < rowCount; r++) {
+      for (let c = 0; c < cols; c++) {
+        if (bGrid[r][c] !== '#') continue;
+        let isFlame = false;
+        for (const fc of fCenters) {
+          if (Math.sqrt((r - fc.r) ** 2 + (c - fc.c) ** 2) < fRadius) { isFlame = true; break; }
+        }
+        const t = this.add.text(c * charW, r * charH, '#', { ...bStyle });
+        if (isFlame) {
+          const colors = ['#ff3300', '#ff6600', '#ffaa00', '#ffcc00'];
+          t.setColor(colors[Math.floor(Math.random() * colors.length)]);
+          t.setAlpha(0.6 + Math.random() * 0.4);
+          flameChars.push(t);
+        } else {
+          t.setAlpha(0.5 + Math.random() * 0.5);
+          wallChars.push(t);
+        }
+      }
+    }
+
+    const handles = [];
+    for (const fc of fCenters) {
+      for (let i = 1; i <= 3; i++) {
+        handles.push(this.add.text(fc.c * charW, (fc.r + fRadius + i) * charH, '#', {
+          fontFamily: 'monospace', fontSize: fontSize + 'px', color: '#8B4513'
+        }));
+      }
+    }
+
+    // Title letters (each as separate text object)
+    const titleStr = 'SN@KELIKE';
+    const titleFS = 48;
+    const meas = this.add.text(-999, -999, titleStr, {
+      fontFamily: 'monospace', fontSize: titleFS + 'px'
+    });
+    const titleTotalW = meas.width || (titleStr.length * titleFS * 0.6);
+    const ltrW = titleTotalW / titleStr.length;
+    meas.destroy();
+
+    const titleX0 = cx - titleTotalW / 2;
+    const titleY = cy - 40;
+    const atIdx = titleStr.indexOf('@');
+    const titleLetters = [];
+    let atObj = null;
+
+    for (let i = 0; i < titleStr.length; i++) {
+      const t = this.add.text(titleX0 + i * ltrW + ltrW / 2, titleY, titleStr[i], {
+        fontFamily: 'monospace', fontSize: titleFS + 'px', color: '#00ff00'
+      }).setOrigin(0.5).setDepth(10);
+      if (i === atIdx) atObj = t;
+      else titleLetters.push({ obj: t, idx: i });
+    }
+
+    const prompt = this.add.text(cx, cy + 30, 'Press any key to start', {
+      fontFamily: 'monospace', fontSize: '18px', color: '#888888'
+    }).setOrigin(0.5);
+    const instruct = this.add.text(cx, cy + 70, 'WASD or Arrow Keys to move', {
+      fontFamily: 'monospace', fontSize: '14px', color: '#555555'
+    }).setOrigin(0.5);
+
+    // ======== ANIMATE ========
+    this._playTransitionSound();
+
+    // Subtitles fade
+    this.tweens.add({ targets: [prompt, instruct], alpha: 0, duration: 150 });
+
+    // Title letters scatter outward from @
+    for (const { obj, idx } of titleLetters) {
+      const side = idx < atIdx ? -1 : 1;
+      const dist = Math.abs(idx - atIdx);
+      this.tweens.add({
+        targets: obj,
+        x: obj.x + side * (200 + Math.random() * 350),
+        y: obj.y + (Math.random() - 0.5) * 300,
+        alpha: 0, scaleX: 0.2, scaleY: 0.2,
+        rotation: side * (0.5 + Math.random() * 2),
+        duration: 450, delay: 50 + dist * 50,
+        ease: 'Power3.easeIn'
+      });
+    }
+
+    // @ pulse → fly → shrink to snake head
+    if (atObj) {
+      atObj.setDepth(20);
+      this.tweens.add({
+        targets: atObj,
+        scaleX: 1.5, scaleY: 1.5,
+        duration: 180, delay: 100,
+        yoyo: true, ease: 'Sine.easeOut'
+      });
+      this.tweens.add({
+        targets: atObj,
+        x: snakeScreenX + TILE_SIZE / 2,
+        y: snakeScreenY + TILE_SIZE / 2,
+        scaleX: TILE_SIZE / titleFS,
+        scaleY: TILE_SIZE / titleFS,
+        duration: 650, delay: 350,
+        ease: 'Power3.easeInOut'
+      });
+      // Green ghost trail behind flying @
+      this.time.delayedCall(350, () => {
+        this.time.addEvent({
+          delay: 45, repeat: 13,
+          callback: () => {
+            if (!atObj || !atObj.active) return;
+            const sz = Math.max(10, titleFS * atObj.scaleX);
+            const ghost = this.add.text(atObj.x, atObj.y, '@', {
+              fontFamily: 'monospace', fontSize: sz + 'px', color: '#00ff00'
+            }).setOrigin(0.5).setAlpha(0.35).setDepth(15);
+            this.tweens.add({
+              targets: ghost, alpha: 0, scaleX: 0.4, scaleY: 0.4,
+              duration: 250, onComplete: () => ghost.destroy()
+            });
+          }
+        });
+      });
+    }
+
+    // Flame chars scatter as rising sparks
+    for (const f of flameChars) {
+      const a = Math.random() * Math.PI * 2;
+      const d = 150 + Math.random() * 450;
+      this.tweens.add({
+        targets: f,
+        x: f.x + Math.cos(a) * d,
+        y: f.y + Math.sin(a) * d - 80,
+        alpha: 0, scaleX: 1.8, scaleY: 0.4,
+        duration: 300 + Math.random() * 300,
+        delay: 150 + Math.random() * 250,
+        ease: 'Power2.easeOut'
+      });
+    }
+
+    // Torch handles dissolve
+    this.tweens.add({ targets: handles, alpha: 0, duration: 250, delay: 150 });
+
+    // Wall #s — sort by distance from @ for shockwave stagger
+    const atPx = atObj ? atObj.x : cx;
+    const atPy = atObj ? atObj.y : cy;
+    wallChars.sort((a, b) => {
+      return ((a.x - atPx) ** 2 + (a.y - atPy) ** 2) -
+             ((b.x - atPx) ** 2 + (b.y - atPy) ** 2);
+    });
+    const maxDiag = Math.sqrt(W * W + H * H);
+    let wIdx = 0;
+
+    // Wall → dungeon wall positions (Back easing for satisfying overshoot)
+    const wMax = Math.max(0, Math.min(wallChars.length - numBaddies - numRats, wallTargets.length));
+    for (let i = 0; i < wMax && wIdx < wallChars.length; i++) {
+      const obj = wallChars[wIdx++];
+      const tgt = wallTargets[i];
+      const dist = Math.sqrt((obj.x - atPx) ** 2 + (obj.y - atPy) ** 2);
+      const norm = dist / maxDiag;
+      this.tweens.add({
+        targets: obj,
+        x: tgt.x, y: tgt.y, alpha: 1,
+        duration: 600 + Math.random() * 200,
+        delay: 300 + norm * 500,
+        ease: 'Back.easeOut',
+        onComplete: () => obj.setColor(COLOR_WALL)
+      });
+    }
+
+    // Wall → baddie positions (flame streaks with spark trails)
+    for (let i = 0; i < baddieScreenTargets.length && wIdx < wallChars.length; i++) {
+      const obj = wallChars[wIdx++];
+      const tgt = baddieScreenTargets[i];
+      obj.setColor('#ff2200');
+      const delay = 300 + Math.random() * 300;
+      this.tweens.add({
+        targets: obj,
+        x: tgt.x, y: tgt.y,
+        duration: 750, delay: delay,
+        ease: 'Power4.easeIn',
+        onUpdate: () => {
+          const c = ['#ff0000', '#ff2200', '#ff4400', '#ff6600', '#ff8800', '#ffaa00'];
+          obj.setColor(c[Math.floor(Math.random() * c.length)]);
+        },
+        onComplete: () => {
+          obj.setText('B').setColor(COLOR_BADDIE).setFontSize(16);
+          const burst = this.add.text(tgt.x, tgt.y, '#', {
+            fontFamily: 'monospace', fontSize: '28px', color: '#ff4400'
+          }).setOrigin(0.3).setAlpha(0.9).setDepth(5);
+          this.tweens.add({
+            targets: burst, alpha: 0, scaleX: 2.5, scaleY: 2.5,
+            duration: 250, onComplete: () => burst.destroy()
+          });
+        }
+      });
+      // Fire spark trail
+      this.time.delayedCall(delay, () => {
+        this.time.addEvent({
+          delay: 60, repeat: 10,
+          callback: () => {
+            if (!obj.active) return;
+            const spark = this.add.text(
+              obj.x + (Math.random() - 0.5) * 12,
+              obj.y + (Math.random() - 0.5) * 12, '#', {
+              fontFamily: 'monospace', fontSize: '10px', color: '#ffaa00'
+            }).setAlpha(0.7);
+            this.tweens.add({
+              targets: spark, alpha: 0, y: spark.y - 20,
+              duration: 200, onComplete: () => spark.destroy()
+            });
+          }
+        });
+      });
+    }
+
+    // Wall → rat positions (yellow streaks)
+    for (let i = 0; i < ratScreenTargets.length && wIdx < wallChars.length; i++) {
+      const obj = wallChars[wIdx++];
+      const tgt = ratScreenTargets[i];
+      obj.setColor('#ffff00');
+      const delay = 350 + Math.random() * 300;
+      this.tweens.add({
+        targets: obj,
+        x: tgt.x, y: tgt.y,
+        duration: 700, delay: delay,
+        ease: 'Power3.easeIn',
+        onUpdate: () => {
+          const c = ['#ffff00', '#ffee00', '#ffdd00', '#ffffff'];
+          obj.setColor(c[Math.floor(Math.random() * c.length)]);
+        },
+        onComplete: () => obj.setText('r').setColor(COLOR_RAT).setFontSize(16)
+      });
+    }
+
+    // Remaining wall #s: explode outward and dissolve
+    for (let i = wIdx; i < wallChars.length; i++) {
+      const obj = wallChars[i];
+      const a = Math.random() * Math.PI * 2;
+      const d = 200 + Math.random() * 600;
+      const dist = Math.sqrt((obj.x - atPx) ** 2 + (obj.y - atPy) ** 2);
+      const norm = dist / maxDiag;
+      this.tweens.add({
+        targets: obj,
+        x: obj.x + Math.cos(a) * d,
+        y: obj.y + Math.sin(a) * d,
+        alpha: 0, scaleX: 0.2, scaleY: 0.2,
+        duration: 400 + Math.random() * 400,
+        delay: 250 + norm * 400,
+        ease: 'Power2.easeOut'
+      });
+    }
+
+    // Camera shake + green flash → start game immediately (no fade)
+    this.time.delayedCall(1200, () => {
+      this.cameras.main.shake(250, 0.008);
+    });
+
+    const flashRect = this.add.rectangle(cx, cy, W + 200, H + 200, 0x00ff00, 0).setDepth(100);
+    this.time.delayedCall(1300, () => {
+      this.tweens.add({
+        targets: flashRect,
+        alpha: { from: 0, to: 0.5 },
+        duration: 80, yoyo: true, hold: 50,
+        onComplete: () => this._startGame()
+      });
+    });
+
+    // Track initial direction from player input during transition
+    this.initialDirection = null;
+    const dirMap = {
+      ArrowUp: DIR.UP, ArrowDown: DIR.DOWN, ArrowLeft: DIR.LEFT, ArrowRight: DIR.RIGHT,
+      w: DIR.UP, W: DIR.UP, s: DIR.DOWN, S: DIR.DOWN,
+      a: DIR.LEFT, A: DIR.LEFT, d: DIR.RIGHT, D: DIR.RIGHT
+    };
+
+    // Allow skipping after a brief delay; directional keys also set initial move
+    this.time.delayedCall(300, () => {
+      this.input.keyboard.on('keydown', (event) => {
+        if (dirMap[event.key]) {
+          this.initialDirection = dirMap[event.key];
+        }
+        this._startGame();
+      });
+    });
+  }
+
+  _startGame() {
+    if (this.skipDone) return;
+    this.skipDone = true;
+    this.scene.start('GameScene', {
+      level: this.level,
+      snakeLength: this.snakeLength,
+      baddiesKilled: this.baddiesKilled,
+      maxSnakeLength: this.maxSnakeLength,
+      score: this.currentScore,
+      preGenerated: this.dungeonData,
+      initialDirection: this.initialDirection
+    });
+  }
+
+  _findFloor(grid, mapW, mapH, rooms, snake, rats, baddies) {
+    for (let i = 0; i < 1000; i++) {
+      const room = rooms[Math.floor(Math.random() * rooms.length)];
+      const x = room.x + 1 + Math.floor(Math.random() * Math.max(1, room.w - 2));
+      const y = room.y + 1 + Math.floor(Math.random() * Math.max(1, room.h - 2));
+      if (x <= 0 || x >= mapW - 1 || y <= 0 || y >= mapH - 1) continue;
+      if (grid[y][x] !== FLOOR) continue;
+      if (snake.some(s => s.x === x && s.y === y)) continue;
+      if (rats.some(r => r.x === x && r.y === y)) continue;
+      if (baddies.some(b => b.x === x && b.y === y)) continue;
+      return { x, y };
+    }
+    for (let y = 1; y < mapH - 1; y++) {
+      for (let x = 1; x < mapW - 1; x++) {
+        if (grid[y][x] === FLOOR) return { x, y };
+      }
+    }
+    return { x: 1, y: 1 };
+  }
+
+  _playTransitionSound() {
+    try {
+      const ctx = this.sound && this.sound.context;
+      if (!ctx) return;
+
+      // Rising whoosh
+      const osc1 = ctx.createOscillator();
+      const g1 = ctx.createGain();
+      osc1.type = 'sawtooth';
+      osc1.frequency.setValueAtTime(80, ctx.currentTime);
+      osc1.frequency.exponentialRampToValueAtTime(600, ctx.currentTime + 0.6);
+      osc1.frequency.exponentialRampToValueAtTime(150, ctx.currentTime + 1.0);
+      g1.gain.setValueAtTime(0, ctx.currentTime);
+      g1.gain.linearRampToValueAtTime(0.08, ctx.currentTime + 0.1);
+      g1.gain.linearRampToValueAtTime(0.04, ctx.currentTime + 0.6);
+      g1.gain.linearRampToValueAtTime(0, ctx.currentTime + 1.3);
+      osc1.connect(g1); g1.connect(ctx.destination);
+      osc1.start(); osc1.stop(ctx.currentTime + 1.3);
+      osc1.onended = () => { g1.disconnect(); osc1.disconnect(); };
+
+      // High shimmer
+      const osc2 = ctx.createOscillator();
+      const g2 = ctx.createGain();
+      osc2.type = 'sine';
+      osc2.frequency.setValueAtTime(2000, ctx.currentTime);
+      osc2.frequency.linearRampToValueAtTime(4000, ctx.currentTime + 0.8);
+      g2.gain.setValueAtTime(0, ctx.currentTime);
+      g2.gain.linearRampToValueAtTime(0.02, ctx.currentTime + 0.2);
+      g2.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.9);
+      osc2.connect(g2); g2.connect(ctx.destination);
+      osc2.start(); osc2.stop(ctx.currentTime + 0.9);
+      osc2.onended = () => { g2.disconnect(); osc2.disconnect(); };
+
+      // Impact thud at ~1.2s
+      setTimeout(() => {
+        try {
+          const osc3 = ctx.createOscillator();
+          const g3 = ctx.createGain();
+          osc3.type = 'triangle';
+          osc3.frequency.setValueAtTime(80, ctx.currentTime);
+          osc3.frequency.linearRampToValueAtTime(30, ctx.currentTime + 0.2);
+          g3.gain.setValueAtTime(0.12, ctx.currentTime);
+          g3.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.25);
+          osc3.connect(g3); g3.connect(ctx.destination);
+          osc3.start(); osc3.stop(ctx.currentTime + 0.25);
+          osc3.onended = () => { g3.disconnect(); osc3.disconnect(); };
+        } catch (e) {}
+      }, 1200);
+    } catch (e) {}
   }
 }
 
@@ -833,6 +1333,9 @@ class GameScene extends Phaser.Scene {
     this.baddiesKilled = data.baddiesKilled || 0;
     this.maxSnakeLength = data.maxSnakeLength || 1;
     this.currentScore = data.score || 0;
+    this.preGenerated = data.preGenerated || null;
+    this.fromTransition = !!data.preGenerated;
+    this.initialDirection = data.initialDirection || null;
   }
 
   updateScore() {
@@ -842,14 +1345,19 @@ class GameScene extends Phaser.Scene {
   }
 
   create() {
-    // Map dimensions
-    this.mapW = 35 + 5 * this.level;
-    this.mapH = 27 + 3 * this.level;
-
-    // Generate dungeon
-    const dungeon = generateDungeon(this.mapW, this.mapH);
-    this.grid = dungeon.grid;
-    this.rooms = dungeon.rooms;
+    // Map dimensions & dungeon
+    if (this.preGenerated) {
+      this.mapW = this.preGenerated.mapW;
+      this.mapH = this.preGenerated.mapH;
+      this.grid = this.preGenerated.grid;
+      this.rooms = this.preGenerated.rooms;
+    } else {
+      this.mapW = 35 + 5 * this.level;
+      this.mapH = 27 + 3 * this.level;
+      const dungeon = generateDungeon(this.mapW, this.mapH);
+      this.grid = dungeon.grid;
+      this.rooms = dungeon.rooms;
+    }
 
     // Visibility
     this.visibility = [];
@@ -887,9 +1395,15 @@ class GameScene extends Phaser.Scene {
 
     // Place snake
     this.snake = [];
-    const startRoom = this.rooms[Math.floor(Math.random() * this.rooms.length)];
-    const startX = Math.floor(startRoom.x + startRoom.w / 2);
-    const startY = Math.floor(startRoom.y + startRoom.h / 2);
+    let startX, startY;
+    if (this.preGenerated) {
+      startX = this.preGenerated.snakeX;
+      startY = this.preGenerated.snakeY;
+    } else {
+      const startRoom = this.rooms[Math.floor(Math.random() * this.rooms.length)];
+      startX = Math.floor(startRoom.x + startRoom.w / 2);
+      startY = Math.floor(startRoom.y + startRoom.h / 2);
+    }
     this.snake.push({ x: startX, y: startY });
 
     // Grow to initial length if carrying over from previous level
@@ -905,27 +1419,42 @@ class GameScene extends Phaser.Scene {
     this.growCount = 0;
 
     // Place rats
-    this.numRats = 4 + this.level;
-    this.rats = [];
-    for (let i = 0; i < this.numRats; i++) {
-      this.rats.push(this.randomFloorTile());
+    if (this.preGenerated) {
+      this.numRats = this.preGenerated.rats.length;
+      this.rats = this.preGenerated.rats.map(r => ({ x: r.x, y: r.y }));
+    } else {
+      this.numRats = 4 + this.level;
+      this.rats = [];
+      for (let i = 0; i < this.numRats; i++) {
+        this.rats.push(this.randomFloorTile());
+      }
     }
 
     // Place baddies
-    this.numBaddies = 4 + this.level;
-    this.baddies = [];
-    const allDirs = [DIR.UP, DIR.DOWN, DIR.LEFT, DIR.RIGHT];
-    for (let i = 0; i < this.numBaddies; i++) {
-      const pos = this.randomFloorTile();
-      this.baddies.push({
-        x: pos.x,
-        y: pos.y,
-        primaryDirection: allDirs[Math.floor(Math.random() * 4)],
-        state: AI_MOVING,
-        shiftRemaining: 0,
-        shiftDirection: DIR.LEFT
-      });
+    if (this.preGenerated) {
+      this.numBaddies = this.preGenerated.baddies.length;
+      this.baddies = this.preGenerated.baddies.map(b => ({
+        x: b.x, y: b.y,
+        primaryDirection: b.primaryDirection,
+        state: b.state,
+        shiftRemaining: b.shiftRemaining,
+        shiftDirection: b.shiftDirection
+      }));
+    } else {
+      this.numBaddies = 4 + this.level;
+      this.baddies = [];
+      const allDirs = [DIR.UP, DIR.DOWN, DIR.LEFT, DIR.RIGHT];
+      for (let i = 0; i < this.numBaddies; i++) {
+        const pos = this.randomFloorTile();
+        this.baddies.push({
+          x: pos.x, y: pos.y,
+          primaryDirection: allDirs[Math.floor(Math.random() * 4)],
+          state: AI_MOVING, shiftRemaining: 0, shiftDirection: DIR.LEFT
+        });
+      }
     }
+
+    this.preGenerated = null;
 
     this.staircase = null;
     this.staircasePlaced = false;
@@ -986,6 +1515,14 @@ class GameScene extends Phaser.Scene {
 
     // Render initial state
     this.renderMap();
+
+    // If a direction was captured during transition, start moving immediately
+    if (this.fromTransition && this.initialDirection) {
+      this.direction = this.initialDirection;
+      this.nextDirection = this.initialDirection;
+      this.moving = true;
+      this.snakeMoveTimer = this.snakeMoveInterval;
+    }
   }
 
   randomFloorTile() {
@@ -1415,7 +1952,7 @@ const config = {
   height: 600,
   backgroundColor: '#000000',
   parent: document.body,
-  scene: [TitleScene, GameScene, GameOverScene],
+  scene: [TitleScene, TransitionScene, GameScene, GameOverScene],
   audio: {
     disableWebAudio: false
   },
