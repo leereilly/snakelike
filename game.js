@@ -25,7 +25,7 @@ const COLOR_BADDIE = '#ff0000';
 const COLOR_STAIRCASE = '#00ffff';
 const COLOR_LAVA = '#ff4400';
 const COLOR_TRAP = '#aa00ff';
-const COLOR_TELEPORTER = '#ff00ff';
+
 const COLOR_POWERUP_SPEED = '#00ffff';
 const COLOR_POWERUP_SHIELD = '#4488ff';
 const COLOR_POWERUP_PHASE = '#cc88ff';
@@ -202,22 +202,7 @@ function playTrapSound(ctx) {
   } catch (e) {}
 }
 
-function playTeleportSound(ctx) {
-  if (!isSoundEnabled()) return;
-  if (!ctx) return;
-  try {
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(200, ctx.currentTime);
-    osc.frequency.exponentialRampToValueAtTime(1200, ctx.currentTime + 0.2);
-    gain.gain.setValueAtTime(0.07, ctx.currentTime);
-    gain.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.25);
-    osc.connect(gain); gain.connect(ctx.destination);
-    osc.start(); osc.stop(ctx.currentTime + 0.25);
-    osc.onended = () => { gain.disconnect(); osc.disconnect(); };
-  } catch (e) {}
-}
+
 
 function playLaserSound(ctx) {
   if (!isSoundEnabled()) return;
@@ -515,7 +500,6 @@ function generateDungeon(mapW, mapH, level) {
   // Place hazards
   const lavaTiles = [];
   const trapTiles = [];
-  const teleporters = [];
   const occupied = new Set();
 
   function randomFloorInRoom(room) {
@@ -576,23 +560,7 @@ function generateDungeon(mapW, mapH, level) {
     }
   }
 
-  // Teleporters: 1 pair per level
-  if (rooms.length >= 2) {
-    const r1 = rooms[Math.floor(Math.random() * rooms.length)];
-    let r2 = rooms[Math.floor(Math.random() * rooms.length)];
-    let tries = 0;
-    while (r2 === r1 && tries < 20) { r2 = rooms[Math.floor(Math.random() * rooms.length)]; tries++; }
-    const p1 = randomFloorInRoom(r1);
-    const p2 = randomFloorInRoom(r2);
-    if (p1 && p2) {
-      teleporters.push({ x: p1.x, y: p1.y, pairX: p2.x, pairY: p2.y });
-      teleporters.push({ x: p2.x, y: p2.y, pairX: p1.x, pairY: p1.y });
-      occupied.add(p1.y * mapW + p1.x);
-      occupied.add(p2.y * mapW + p2.x);
-    }
-  }
-
-  return { grid, rooms, lavaTiles, trapTiles, teleporters };
+  return { grid, rooms, lavaTiles, trapTiles };
 }
 
 // ============================================================
@@ -1098,8 +1066,7 @@ class TransitionScene extends Phaser.Scene {
       rats: ratsArr,
       baddies: baddiesArr,
       lavaTiles: dungeon.lavaTiles || [],
-      trapTiles: dungeon.trapTiles || [],
-      teleporters: dungeon.teleporters || []
+      trapTiles: dungeon.trapTiles || []
     };
 
     // Find a floor tile adjacent to the snake for the intro staircase
@@ -2010,16 +1977,13 @@ class GameScene extends Phaser.Scene {
     if (this.preGenerated) {
       this.lavaTiles = this.preGenerated.lavaTiles || [];
       this.trapTiles = this.preGenerated.trapTiles || [];
-      this.teleporters = this.preGenerated.teleporters || [];
     } else if (this._dungeonHazards) {
       this.lavaTiles = this._dungeonHazards.lavaTiles || [];
       this.trapTiles = this._dungeonHazards.trapTiles || [];
-      this.teleporters = this._dungeonHazards.teleporters || [];
       this._dungeonHazards = null;
     } else {
       this.lavaTiles = [];
       this.trapTiles = [];
-      this.teleporters = [];
     }
 
     this.preGenerated = null;
@@ -2144,7 +2108,6 @@ class GameScene extends Phaser.Scene {
       // Check not on hazards
       if (this.lavaTiles && this.lavaTiles.some(l => l.x === x && l.y === y)) continue;
       if (this.trapTiles && this.trapTiles.some(t => t.x === x && t.y === y)) continue;
-      if (this.teleporters && this.teleporters.some(t => t.x === x && t.y === y)) continue;
       if (this.powerups && this.powerups.some(p => p.x === x && p.y === y)) continue;
       return { x, y };
     }
@@ -2444,19 +2407,6 @@ class GameScene extends Phaser.Scene {
         this.trapTiles.splice(i, 1);
         playTrapSound(this.audioCtx);
         this.cameras.main.flash(100, 170, 0, 255, false, null, null, 0.2);
-        break;
-      }
-    }
-
-    // Check teleporter collision
-    for (const tp of this.teleporters) {
-      if (newHead.x === tp.x && newHead.y === tp.y) {
-        this.snake[0].x = tp.pairX;
-        this.snake[0].y = tp.pairY;
-        playTeleportSound(this.audioCtx);
-        this.cameras.main.flash(150, 255, 0, 255, false, null, null, 0.25);
-        newHead.x = tp.pairX;
-        newHead.y = tp.pairY;
         break;
       }
     }
@@ -3012,12 +2962,6 @@ class GameScene extends Phaser.Scene {
     for (const trap of this.trapTiles) {
       const key = trap.y * this.mapW + trap.x;
       if (!entityMap[key]) entityMap[key] = { char: '^', color: COLOR_TRAP, showExplored: true };
-    }
-
-    // Teleporters
-    for (const tp of this.teleporters) {
-      const key = tp.y * this.mapW + tp.x;
-      if (!entityMap[key]) entityMap[key] = { char: 'O', color: COLOR_TELEPORTER };
     }
 
     // Projectiles
