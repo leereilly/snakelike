@@ -391,6 +391,31 @@ class TitleScene extends Phaser.Scene {
   constructor() { super('TitleScene'); }
 
   create() {
+    this.leaderboardEntries = null;
+    fetchLeaderboard().then(entries => {
+      this.leaderboardEntries = entries;
+    }).catch(() => {
+      this.leaderboardEntries = [];
+    });
+
+    this.showTitle();
+  }
+
+  clearScreen() {
+    this.children.removeAll();
+    this.input.keyboard.removeAllListeners();
+    if (this.switchTimer) { this.switchTimer.remove(); this.switchTimer = null; }
+  }
+
+  addStartListener() {
+    this.input.keyboard.on('keydown', () => {
+      if (this.switchTimer) { this.switchTimer.remove(); this.switchTimer = null; }
+      this.scene.start('GameScene', { level: 1, snakeLength: 1 });
+    });
+  }
+
+  showTitle() {
+    this.clearScreen();
     const cx = this.cameras.main.centerX;
     const cy = this.cameras.main.centerY;
 
@@ -406,8 +431,56 @@ class TitleScene extends Phaser.Scene {
       fontFamily: 'monospace', fontSize: '14px', color: '#555555'
     }).setOrigin(0.5);
 
-    this.input.keyboard.on('keydown', () => {
-      this.scene.start('GameScene', { level: 1, snakeLength: 1 });
+    this.addStartListener();
+
+    this.switchTimer = this.time.delayedCall(3000, () => {
+      this.showTitleLeaderboard();
+    });
+  }
+
+  showTitleLeaderboard() {
+    this.clearScreen();
+    const cx = this.cameras.main.centerX;
+    const cy = this.cameras.main.centerY;
+
+    this.add.text(cx, cy - 40, 'SN@KELIKE', {
+      fontFamily: 'monospace', fontSize: '48px', color: '#00ff00'
+    }).setOrigin(0.5);
+
+    const entries = this.leaderboardEntries || [];
+    const sorted = [...entries].sort((a, b) => Number(b.score) - Number(a.score)).slice(0, LEADERBOARD_SIZE);
+    const startY = cy - 5;
+
+    this.add.text(cx, startY, '── LEADERBOARD ──', {
+      fontFamily: 'monospace', fontSize: '16px', color: '#00ffff'
+    }).setOrigin(0.5);
+
+    if (sorted.length === 0) {
+      this.add.text(cx, startY + 25, 'No scores yet', {
+        fontFamily: 'monospace', fontSize: '14px', color: '#555555'
+      }).setOrigin(0.5);
+    } else {
+      for (let i = 0; i < sorted.length; i++) {
+        const entry = sorted[i];
+        const rank = String(i + 1).padStart(2);
+        const displayName = entry.name.replace(/_\d+$/, '');
+        const eName = displayName.substring(0, 12).padEnd(12);
+        const eScore = String(Number(entry.score)).padStart(6);
+        this.add.text(cx, startY + 25 + i * 22, `${rank}. ${eName} ${eScore}`, {
+          fontFamily: 'monospace', fontSize: '14px', color: i < 3 ? '#ffff00' : '#aaaaaa'
+        }).setOrigin(0.5);
+      }
+    }
+
+    const bottom = this.cameras.main.height - 30;
+    this.add.text(cx, bottom, 'Press any key to start', {
+      fontFamily: 'monospace', fontSize: '18px', color: '#888888'
+    }).setOrigin(0.5);
+
+    this.addStartListener();
+
+    this.switchTimer = this.time.delayedCall(8000, () => {
+      this.showTitle();
     });
   }
 }
