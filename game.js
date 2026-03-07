@@ -1606,25 +1606,87 @@ class GameOverScene extends Phaser.Scene {
     this.baddiesKilled = data.baddiesKilled || 0;
     this.maxSnakeLength = data.maxSnakeLength || 1;
     this.score = data.score || ((this.level * POINTS_PER_LEVEL) + (this.baddiesKilled * POINTS_PER_KILL) + (this.maxSnakeLength * POINTS_PER_MAX_LENGTH));
+    this.ratsEaten = data.ratsEaten || 0;
+    this.timeSurvived = data.timeSurvived || 0;
+    this.causeOfDeath = data.causeOfDeath || 'unknown';
     this.nameEntry = '';
     this.inputActive = false;
 
     const cx = this.cameras.main.centerX;
     const cy = this.cameras.main.centerY;
 
-    this.add.text(cx, cy - 80, 'GAME OVER', {
+    // Load personal bests
+    let bests = {};
+    try {
+      bests = JSON.parse(localStorage.getItem('snakelike_bests') || '{}');
+    } catch (e) {}
+
+    // Check for new personal bests
+    const newBests = {};
+    const stats = {
+      level: this.level,
+      kills: this.baddiesKilled,
+      maxLength: this.maxSnakeLength,
+      ratsEaten: this.ratsEaten,
+      timeSurvived: this.timeSurvived,
+      score: this.score
+    };
+    for (const [key, val] of Object.entries(stats)) {
+      if (val > (bests[key] || 0)) {
+        newBests[key] = true;
+        bests[key] = val;
+      }
+    }
+    try {
+      localStorage.setItem('snakelike_bests', JSON.stringify(bests));
+    } catch (e) {}
+
+    // Title
+    this.add.text(cx, 40, 'GAME OVER', {
       fontFamily: 'monospace', fontSize: '48px', color: '#ff0000'
     }).setOrigin(0.5);
 
-    this.add.text(cx, cy - 45, `You reached depth ${this.level} of the Endless Dungeon`, {
+    this.add.text(cx, 75, `You reached depth ${this.level} of the Endless Dungeon`, {
       fontFamily: 'monospace', fontSize: '14px', color: '#888888'
     }).setOrigin(0.5);
 
-    this.add.text(cx, cy - 30, `Level: ${this.level}   Kills: ${this.baddiesKilled}   Max Length: ${this.maxSnakeLength}   Score: ${this.score}`, {
-      fontFamily: 'monospace', fontSize: '18px', color: '#ffffff'
+    // Cause of death
+    this.add.text(cx, 95, `Cause of death: ${this.causeOfDeath}`, {
+      fontFamily: 'monospace', fontSize: '12px', color: '#666666'
     }).setOrigin(0.5);
 
-    const loadingText = this.add.text(cx, cy + 30, 'Loading leaderboard...', {
+    // Stats displayed one-by-one with delays
+    const statLines = [
+      { label: 'Depth Reached', value: this.level, key: 'level' },
+      { label: 'Baddies Killed', value: this.baddiesKilled, key: 'kills' },
+      { label: 'Max Length', value: this.maxSnakeLength, key: 'maxLength' },
+      { label: 'Rats Eaten', value: this.ratsEaten, key: 'ratsEaten' },
+      { label: 'Time Survived', value: `${Math.floor(this.timeSurvived / 60)}m ${this.timeSurvived % 60}s`, key: 'timeSurvived' },
+      { label: 'Final Score', value: this.score, key: 'score' }
+    ];
+
+    const startY = 125;
+    const lineH = 28;
+
+    statLines.forEach((stat, i) => {
+      this.time.delayedCall(400 + i * 350, () => {
+        const pb = newBests[stat.key] ? '  ★ NEW BEST!' : '';
+        const color = newBests[stat.key] ? '#ffff00' : '#cccccc';
+        this.add.text(cx, startY + i * lineH, `${stat.label}: ${stat.value}${pb}`, {
+          fontFamily: 'monospace', fontSize: '16px', color: color
+        }).setOrigin(0.5);
+      });
+    });
+
+    // After all stats shown, load leaderboard
+    const leaderboardDelay = 400 + statLines.length * 350 + 500;
+    this.time.delayedCall(leaderboardDelay, () => {
+      this.showLeaderboardSection(cx, startY + statLines.length * lineH + 15);
+    });
+  }
+
+  showLeaderboardSection(cx, topY) {
+    const loadingText = this.add.text(cx, topY, 'Loading leaderboard...', {
       fontFamily: 'monospace', fontSize: '14px', color: '#555555'
     }).setOrigin(0.5);
 
@@ -1632,9 +1694,9 @@ class GameOverScene extends Phaser.Scene {
       loadingText.destroy();
       const qualifies = this.score > 0 && qualifiesForLeaderboard(this.score, entries);
       if (qualifies) {
-        this.showNameEntry(cx, cy, entries);
+        this.showNameEntry(cx, topY, entries);
       } else {
-        this.showLeaderboard(cx, cy + 20, entries);
+        this.showLeaderboard(cx, topY, entries);
         this.addRestartListener();
       }
     }).catch(() => {
@@ -1643,16 +1705,16 @@ class GameOverScene extends Phaser.Scene {
     });
   }
 
-  showNameEntry(cx, cy, entries) {
-    this.add.text(cx, cy + 20, 'NEW HIGH SCORE!', {
+  showNameEntry(cx, topY, entries) {
+    this.add.text(cx, topY, 'NEW HIGH SCORE!', {
       fontFamily: 'monospace', fontSize: '24px', color: '#ffff00'
     }).setOrigin(0.5);
 
-    this.add.text(cx, cy + 55, 'Enter your name:', {
+    this.add.text(cx, topY + 35, 'Enter your name:', {
       fontFamily: 'monospace', fontSize: '16px', color: '#888888'
     }).setOrigin(0.5);
 
-    this.nameText = this.add.text(cx, cy + 85, '_', {
+    this.nameText = this.add.text(cx, topY + 65, '_', {
       fontFamily: 'monospace', fontSize: '24px', color: '#00ff00'
     }).setOrigin(0.5);
 
@@ -1663,7 +1725,7 @@ class GameOverScene extends Phaser.Scene {
 
       if (event.key === 'Enter' && this.nameEntry.length > 0) {
         this.inputActive = false;
-        this.doSubmit(cx, cy, entries);
+        this.doSubmit(cx, topY, entries);
         return;
       }
 
@@ -1677,7 +1739,7 @@ class GameOverScene extends Phaser.Scene {
     });
   }
 
-  async doSubmit(cx, cy, entries) {
+  async doSubmit(cx, topY, entries) {
     const name = this.nameEntry.trim();
     if (!name) { this.inputActive = true; return; }
 
@@ -1691,22 +1753,9 @@ class GameOverScene extends Phaser.Scene {
       finalEntries = entries;
     }
 
-    this.children.removeAll();
-    this.input.keyboard.removeAllListeners();
-
-    this.add.text(cx, cy - 80, 'GAME OVER', {
-      fontFamily: 'monospace', fontSize: '48px', color: '#ff0000'
-    }).setOrigin(0.5);
-
-    this.add.text(cx, cy - 45, `You reached depth ${this.level} of the Endless Dungeon`, {
-      fontFamily: 'monospace', fontSize: '14px', color: '#888888'
-    }).setOrigin(0.5);
-
-    this.add.text(cx, cy - 30, `Level: ${this.level}   Kills: ${this.baddiesKilled}   Max Length: ${this.maxSnakeLength}   Score: ${this.score}`, {
-      fontFamily: 'monospace', fontSize: '18px', color: '#ffffff'
-    }).setOrigin(0.5);
-
-    this.showLeaderboard(cx, cy + 20, finalEntries);
+    // Clear name entry UI and show leaderboard in same area
+    this.nameText.destroy();
+    this.showLeaderboard(cx, topY, finalEntries);
     this.addRestartListener();
   }
 
@@ -2049,6 +2098,11 @@ class GameScene extends Phaser.Scene {
 
     this.gameOver = false;
 
+    // Run stats tracking
+    this.ratsEaten = 0;
+    this.gameStartTime = this.time.now;
+    this.causeOfDeath = 'unknown';
+
     // Projectiles
     this.projectiles = [];
     this.projectileMoveTimer = 0;
@@ -2317,6 +2371,7 @@ class GameScene extends Phaser.Scene {
 
     // Wall collision
     if (newHead.x < 0 || newHead.x >= this.mapW || newHead.y < 0 || newHead.y >= this.mapH) {
+      this.causeOfDeath = 'wall collision';
       this.doGameOver();
       return;
     }
@@ -2335,10 +2390,12 @@ class GameScene extends Phaser.Scene {
           }
         }
         if (this.grid[newHead.y][newHead.x] === WALL) {
+          this.causeOfDeath = 'wall collision';
           this.doGameOver();
           return;
         }
       } else {
+        this.causeOfDeath = 'wall collision';
         this.doGameOver();
         return;
       }
@@ -2347,6 +2404,7 @@ class GameScene extends Phaser.Scene {
     // Self-collision (check against body segments, not the tail if we're about to remove it)
     for (let i = 0; i < this.snake.length - (this.growCount > 0 ? 0 : 1); i++) {
       if (this.snake[i].x === newHead.x && this.snake[i].y === newHead.y) {
+        this.causeOfDeath = 'self collision';
         this.doGameOver();
         return;
       }
@@ -2368,6 +2426,7 @@ class GameScene extends Phaser.Scene {
     for (const lava of this.lavaTiles) {
       if (newHead.x === lava.x && newHead.y === lava.y) {
         this.cameras.main.flash(200, 255, 68, 0, false, null, null, 0.5);
+        this.causeOfDeath = 'lava';
         this.doGameOver();
         return;
       }
@@ -2377,6 +2436,7 @@ class GameScene extends Phaser.Scene {
     for (let i = this.trapTiles.length - 1; i >= 0; i--) {
       if (newHead.x === this.trapTiles[i].x && newHead.y === this.trapTiles[i].y) {
         if (this.snake.length <= 1) {
+          this.causeOfDeath = 'trap';
           this.doGameOver();
           return;
         }
@@ -2468,6 +2528,7 @@ class GameScene extends Phaser.Scene {
       if (this.rats[i].x === newHead.x && this.rats[i].y === newHead.y) {
         this.rats.splice(i, 1);
         this.growCount++;
+        this.ratsEaten++;
         if (this.snake.length + this.growCount > this.maxSnakeLength) {
           this.maxSnakeLength = this.snake.length + this.growCount;
           this.updateScore();
@@ -2491,6 +2552,7 @@ class GameScene extends Phaser.Scene {
         }
         const pops = grewThisTick ? 2 : 1;
         if (this.snake.length <= pops) {
+          this.causeOfDeath = 'baddie damage';
           this.doGameOver();
           return;
         }
@@ -2514,6 +2576,7 @@ class GameScene extends Phaser.Scene {
             } else {
               const pops = grewThisTick ? 2 : 1;
               if (this.snake.length <= pops) {
+                this.causeOfDeath = 'boss damage';
                 this.doGameOver();
                 return;
               }
@@ -2613,6 +2676,7 @@ class GameScene extends Phaser.Scene {
           continue;
         }
         if (this.snake.length <= 1) {
+          this.causeOfDeath = 'baddie damage';
           this.doGameOver();
           return;
         }
@@ -2726,6 +2790,7 @@ class GameScene extends Phaser.Scene {
             return;
           }
           if (this.snake.length <= 1) {
+            this.causeOfDeath = 'boss damage';
             this.doGameOver();
             return;
           }
@@ -2794,8 +2859,18 @@ class GameScene extends Phaser.Scene {
   doGameOver() {
     this.gameOver = true;
     playGameOver(this.audioCtx);
+    const timeSurvived = Math.floor((this.time.now - this.gameStartTime) / 1000);
     this.time.delayedCall(800, () => {
-      this.scene.start('GameOverScene', { level: this.level, length: this.snake.length, baddiesKilled: this.baddiesKilled, maxSnakeLength: this.maxSnakeLength, score: this.currentScore });
+      this.scene.start('GameOverScene', {
+        level: this.level,
+        length: this.snake.length,
+        baddiesKilled: this.baddiesKilled,
+        maxSnakeLength: this.maxSnakeLength,
+        score: this.currentScore,
+        ratsEaten: this.ratsEaten || 0,
+        timeSurvived: timeSurvived,
+        causeOfDeath: this.causeOfDeath || 'unknown'
+      });
     });
   }
 
