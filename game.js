@@ -28,10 +28,7 @@ const COLOR_STAIRCASE = '#00ffff';
 const AI_MOVING = 0;
 const AI_SHIFTING = 1;
 
-// Dreamlo leaderboard
-const DREAMLO_PRIVATE_KEY = 'ttv11a7euUSPzdG2_eUgzAo2JRyM-D7E-SweYiNIy60A';
-const DREAMLO_PUBLIC_KEY = '69aa6c668f40bc1a1450557f';
-const DREAMLO_BASE = 'https://dreamlo.com/lb';
+// Leaderboard
 const LEADERBOARD_SIZE = 10;
 
 // Directions
@@ -131,7 +128,7 @@ function playLevelTransition(ctx) {
 
 async function fetchLeaderboard() {
   try {
-    const resp = await fetch(`${DREAMLO_BASE}/${DREAMLO_PUBLIC_KEY}/json`);
+    const resp = await fetch('https://snakelike-leaderboard.vercel.app/api/leaderboard');
     const data = await resp.json();
     if (!data.dreamlo || !data.dreamlo.leaderboard || !data.dreamlo.leaderboard.entry) return [];
     const entries = data.dreamlo.leaderboard.entry;
@@ -142,8 +139,11 @@ async function fetchLeaderboard() {
 }
 
 async function submitToLeaderboard(name, score) {
-  const uniqueName = `${name}_${Date.now()}`;
-  return fetch(`${DREAMLO_BASE}/${DREAMLO_PRIVATE_KEY}/add/${encodeURIComponent(uniqueName)}/${score}`);
+  return fetch('https://snakelike-leaderboard.vercel.app/api/leaderboard', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, score }),
+  });
 }
 
 function getPersonalBest() {
