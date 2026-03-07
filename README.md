@@ -29,6 +29,21 @@ No build step required. Open `index.html` in a browser or serve it locally:
 npx serve .
 ```
 
+## Scoring
+
+Your score is calculated using an additive formula:
+
+```
+Score = (Level × 100) + (Baddies Killed × 15) + (Max Snake Length × 5)
+```
+
+| Action | Points |
+|--------|--------|
+| Reach a new dungeon level | +100 per level |
+| Kill a baddie | +15 per kill |
+| Grow your snake | +5 per unit of max length |
+
+Every action matters - kill baddies, eat rats to grow, and push deeper into the dungeon. There's an online leaderboard to share your glory!
 ## License
 
 See [LICENSE](LICENSE) for details.

@@ -31,6 +31,11 @@ const AI_SHIFTING = 1;
 // Leaderboard
 const LEADERBOARD_SIZE = 10;
 
+// Scoring
+const POINTS_PER_LEVEL = 100;
+const POINTS_PER_KILL = 15;
+const POINTS_PER_MAX_LENGTH = 5;
+
 // Directions
 const DIR = {
   UP: { x: 0, y: -1 },
@@ -138,11 +143,11 @@ async function fetchLeaderboard() {
   }
 }
 
-async function submitToLeaderboard(name, score) {
+async function submitToLeaderboard(name, score, level, kills, maxLength) {
   return fetch('https://snakelike-leaderboard.vercel.app/api/leaderboard', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name, score }),
+    body: JSON.stringify({ name, score, level, kills, maxLength }),
   });
 }
 
@@ -419,7 +424,7 @@ class GameOverScene extends Phaser.Scene {
     this.snakeLength = data.length || 1;
     this.baddiesKilled = data.baddiesKilled || 0;
     this.maxSnakeLength = data.maxSnakeLength || 1;
-    this.score = data.score || (this.level * this.baddiesKilled * this.maxSnakeLength);
+    this.score = data.score || ((this.level * POINTS_PER_LEVEL) + (this.baddiesKilled * POINTS_PER_KILL) + (this.maxSnakeLength * POINTS_PER_MAX_LENGTH));
     this.nameEntry = '';
     this.inputActive = false;
 
@@ -495,7 +500,7 @@ class GameOverScene extends Phaser.Scene {
 
     let finalEntries;
     try {
-      await submitToLeaderboard(name, this.score);
+      await submitToLeaderboard(name, this.score, this.level, this.baddiesKilled, this.maxSnakeLength);
       finalEntries = await fetchLeaderboard();
     } catch (e) {
       finalEntries = entries;
@@ -570,7 +575,9 @@ class GameScene extends Phaser.Scene {
   }
 
   updateScore() {
-    this.currentScore = this.level * this.baddiesKilled * this.maxSnakeLength;
+    this.currentScore = (this.level * POINTS_PER_LEVEL)
+      + (this.baddiesKilled * POINTS_PER_KILL)
+      + (this.maxSnakeLength * POINTS_PER_MAX_LENGTH);
   }
 
   create() {
