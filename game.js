@@ -1,5 +1,5 @@
 // ============================================================
-// SNAKELIKE — Snake × Roguelike built with Phaser 3
+// SN@KELIKE — Snake × Roguelike built with Phaser 3
 // ============================================================
 
 const TILE_SIZE = 16;
@@ -27,6 +27,12 @@ const COLOR_STAIRCASE = '#00ffff';
 // Baddie AI states
 const AI_MOVING = 0;
 const AI_SHIFTING = 1;
+
+// Dreamlo leaderboard
+const DREAMLO_PRIVATE_KEY = 'ttv11a7euUSPzdG2_eUgzAo2JRyM-D7E-SweYiNIy60A';
+const DREAMLO_PUBLIC_KEY = '69aa6c668f40bc1a1450557f';
+const DREAMLO_BASE = 'http://dreamlo.com/lb';
+const LEADERBOARD_SIZE = 10;
 
 // Directions
 const DIR = {
@@ -117,6 +123,43 @@ function playLevelTransition(ctx) {
     osc.stop(ctx.currentTime + 0.3);
     osc.onended = () => { gain.disconnect(); osc.disconnect(); };
   } catch (e) {}
+}
+
+// ============================================================
+// LEADERBOARD
+// ============================================================
+
+async function fetchLeaderboard() {
+  try {
+    const resp = await fetch(`${DREAMLO_BASE}/${DREAMLO_PUBLIC_KEY}/json`);
+    const data = await resp.json();
+    if (!data.dreamlo || !data.dreamlo.leaderboard || !data.dreamlo.leaderboard.entry) return [];
+    const entries = data.dreamlo.leaderboard.entry;
+    return Array.isArray(entries) ? entries : [entries];
+  } catch (e) {
+    return [];
+  }
+}
+
+async function submitToLeaderboard(name, score) {
+  const uniqueName = `${name}_${Date.now()}`;
+  return fetch(`${DREAMLO_BASE}/${DREAMLO_PRIVATE_KEY}/add/${encodeURIComponent(uniqueName)}/${score}`);
+}
+
+function getPersonalBest() {
+  try { return parseInt(localStorage.getItem('snakelike_best') || '0'); }
+  catch (e) { return 0; }
+}
+
+function setPersonalBest(score) {
+  try { localStorage.setItem('snakelike_best', score.toString()); }
+  catch (e) {}
+}
+
+function qualifiesForLeaderboard(score, entries) {
+  if (entries.length < LEADERBOARD_SIZE) return true;
+  const sorted = [...entries].sort((a, b) => Number(b.score) - Number(a.score));
+  return score > Number(sorted[LEADERBOARD_SIZE - 1].score);
 }
 
 // ============================================================
@@ -346,7 +389,7 @@ class TitleScene extends Phaser.Scene {
     const cx = this.cameras.main.centerX;
     const cy = this.cameras.main.centerY;
 
-    this.add.text(cx, cy - 40, 'SNAKELIKE', {
+    this.add.text(cx, cy - 40, 'SN@KELIKE', {
       fontFamily: 'monospace', fontSize: '48px', color: '#00ff00'
     }).setOrigin(0.5);
 
@@ -372,22 +415,140 @@ class GameOverScene extends Phaser.Scene {
   constructor() { super('GameOverScene'); }
 
   create(data) {
+    this.level = data.level || 1;
+    this.snakeLength = data.length || 1;
+    this.baddiesKilled = data.baddiesKilled || 0;
+    this.maxSnakeLength = data.maxSnakeLength || 1;
+    this.score = data.score || (this.level * this.baddiesKilled * this.maxSnakeLength);
+    this.nameEntry = '';
+    this.inputActive = false;
+
     const cx = this.cameras.main.centerX;
     const cy = this.cameras.main.centerY;
 
-    this.add.text(cx, cy - 50, 'GAME OVER', {
+    this.add.text(cx, cy - 80, 'GAME OVER', {
       fontFamily: 'monospace', fontSize: '48px', color: '#ff0000'
     }).setOrigin(0.5);
 
-    this.add.text(cx, cy + 10, `Level: ${data.level || 1}   Length: ${data.length || 1}`, {
-      fontFamily: 'monospace', fontSize: '20px', color: '#ffffff'
+    this.add.text(cx, cy - 30, `Level: ${this.level}   Kills: ${this.baddiesKilled}   Max Length: ${this.maxSnakeLength}   Score: ${this.score}`, {
+      fontFamily: 'monospace', fontSize: '18px', color: '#ffffff'
     }).setOrigin(0.5);
 
-    this.add.text(cx, cy + 60, 'Press R to restart', {
+    const loadingText = this.add.text(cx, cy + 30, 'Loading leaderboard...', {
+      fontFamily: 'monospace', fontSize: '14px', color: '#555555'
+    }).setOrigin(0.5);
+
+    fetchLeaderboard().then(entries => {
+      loadingText.destroy();
+      const qualifies = this.score > 0 && qualifiesForLeaderboard(this.score, entries);
+      if (qualifies) {
+        this.showNameEntry(cx, cy, entries);
+      } else {
+        this.showLeaderboard(cx, cy + 20, entries);
+        this.addRestartListener();
+      }
+    }).catch(() => {
+      loadingText.destroy();
+      this.addRestartListener();
+    });
+  }
+
+  showNameEntry(cx, cy, entries) {
+    this.add.text(cx, cy + 20, 'NEW HIGH SCORE!', {
+      fontFamily: 'monospace', fontSize: '24px', color: '#ffff00'
+    }).setOrigin(0.5);
+
+    this.add.text(cx, cy + 55, 'Enter your name:', {
+      fontFamily: 'monospace', fontSize: '16px', color: '#888888'
+    }).setOrigin(0.5);
+
+    this.nameText = this.add.text(cx, cy + 85, '_', {
+      fontFamily: 'monospace', fontSize: '24px', color: '#00ff00'
+    }).setOrigin(0.5);
+
+    this.inputActive = true;
+
+    this.input.keyboard.on('keydown', (event) => {
+      if (!this.inputActive) return;
+
+      if (event.key === 'Enter' && this.nameEntry.length > 0) {
+        this.inputActive = false;
+        this.doSubmit(cx, cy, entries);
+        return;
+      }
+
+      if (event.key === 'Backspace') {
+        this.nameEntry = this.nameEntry.slice(0, -1);
+      } else if (event.key.length === 1 && /[a-zA-Z0-9]/.test(event.key) && this.nameEntry.length < 12) {
+        this.nameEntry += event.key;
+      }
+
+      this.nameText.setText(this.nameEntry + '_');
+    });
+  }
+
+  async doSubmit(cx, cy, entries) {
+    const name = this.nameEntry.trim();
+    if (!name) { this.inputActive = true; return; }
+
+    this.nameText.setText('Submitting...');
+
+    let finalEntries;
+    try {
+      await submitToLeaderboard(name, this.score);
+      finalEntries = await fetchLeaderboard();
+    } catch (e) {
+      finalEntries = entries;
+    }
+
+    this.children.removeAll();
+    this.input.keyboard.removeAllListeners();
+
+    this.add.text(cx, cy - 80, 'GAME OVER', {
+      fontFamily: 'monospace', fontSize: '48px', color: '#ff0000'
+    }).setOrigin(0.5);
+
+    this.add.text(cx, cy - 30, `Level: ${this.level}   Kills: ${this.baddiesKilled}   Max Length: ${this.maxSnakeLength}   Score: ${this.score}`, {
+      fontFamily: 'monospace', fontSize: '18px', color: '#ffffff'
+    }).setOrigin(0.5);
+
+    this.showLeaderboard(cx, cy + 20, finalEntries);
+    this.addRestartListener();
+  }
+
+  showLeaderboard(cx, startY, entries) {
+    const sorted = [...entries].sort((a, b) => Number(b.score) - Number(a.score)).slice(0, LEADERBOARD_SIZE);
+
+    this.add.text(cx, startY, '── LEADERBOARD ──', {
+      fontFamily: 'monospace', fontSize: '16px', color: '#00ffff'
+    }).setOrigin(0.5);
+
+    if (sorted.length === 0) {
+      this.add.text(cx, startY + 25, 'No scores yet', {
+        fontFamily: 'monospace', fontSize: '14px', color: '#555555'
+      }).setOrigin(0.5);
+    } else {
+      for (let i = 0; i < sorted.length; i++) {
+        const entry = sorted[i];
+        const rank = String(i + 1).padStart(2);
+        const displayName = entry.name.replace(/_\d+$/, '');
+        const eName = displayName.substring(0, 12).padEnd(12);
+        const eScore = String(Number(entry.score)).padStart(6);
+        this.add.text(cx, startY + 25 + i * 22, `${rank}. ${eName} ${eScore}`, {
+          fontFamily: 'monospace', fontSize: '14px', color: i < 3 ? '#ffff00' : '#aaaaaa'
+        }).setOrigin(0.5);
+      }
+    }
+  }
+
+  addRestartListener() {
+    const cx = this.cameras.main.centerX;
+    const bottom = this.cameras.main.height - 30;
+    this.add.text(cx, bottom, 'Press any key to restart', {
       fontFamily: 'monospace', fontSize: '18px', color: '#888888'
     }).setOrigin(0.5);
 
-    this.input.keyboard.on('keydown-R', () => {
+    this.input.keyboard.on('keydown', () => {
       this.scene.start('GameScene', { level: 1, snakeLength: 1 });
     });
   }
@@ -403,6 +564,13 @@ class GameScene extends Phaser.Scene {
   init(data) {
     this.level = data.level || 1;
     this.initialSnakeLength = data.snakeLength || 1;
+    this.baddiesKilled = data.baddiesKilled || 0;
+    this.maxSnakeLength = data.maxSnakeLength || 1;
+    this.currentScore = data.score || 0;
+  }
+
+  updateScore() {
+    this.currentScore = this.level * this.baddiesKilled * this.maxSnakeLength;
   }
 
   create() {
@@ -520,6 +688,16 @@ class GameScene extends Phaser.Scene {
     this.hudText.setScrollFactor(0);
     this.hudText.setDepth(100);
 
+    this.scoreText = this.add.text(this.cameras.main.width - 10, 10, '', {
+      fontFamily: 'monospace',
+      fontSize: '16px',
+      color: '#ffff00',
+      backgroundColor: '#000000aa',
+      padding: { x: 4, y: 2 }
+    }).setOrigin(1, 0);
+    this.scoreText.setScrollFactor(0);
+    this.scoreText.setDepth(100);
+
     // Input
     this.cursors = this.input.keyboard.createCursorKeys();
     this.keyW = this.input.keyboard.addKey('W');
@@ -599,6 +777,7 @@ class GameScene extends Phaser.Scene {
     this.hudText.setText(
       `Level: ${this.level}  Rats: ${aliveRats}  Baddies: ${aliveBaddies}  Length: ${this.snake.length}`
     );
+    this.scoreText.setText(`Score: ${this.currentScore}`);
 
     // Update camera follow target
     const head = this.snake[0];
@@ -683,6 +862,8 @@ class GameScene extends Phaser.Scene {
       for (let s = 1; s < this.snake.length; s++) {
         if (this.snake[s].x === b.x && this.snake[s].y === b.y) {
           this.baddies.splice(i, 1);
+          this.baddiesKilled++;
+          this.updateScore();
           playBaddieDeath(this.audioCtx);
           break;
         }
@@ -697,6 +878,10 @@ class GameScene extends Phaser.Scene {
       if (this.rats[i].x === newHead.x && this.rats[i].y === newHead.y) {
         this.rats.splice(i, 1);
         this.growCount++;
+        if (this.snake.length + this.growCount > this.maxSnakeLength) {
+          this.maxSnakeLength = this.snake.length + this.growCount;
+          this.updateScore();
+        }
         playEatSound(this.audioCtx);
         break;
       }
@@ -718,7 +903,7 @@ class GameScene extends Phaser.Scene {
     // Check staircase
     if (this.staircase && newHead.x === this.staircase.x && newHead.y === this.staircase.y) {
       playLevelTransition(this.audioCtx);
-      this.scene.start('GameScene', { level: this.level + 1, snakeLength: this.snake.length });
+      this.scene.start('GameScene', { level: this.level + 1, snakeLength: this.snake.length, baddiesKilled: this.baddiesKilled, maxSnakeLength: this.maxSnakeLength, score: this.currentScore });
       return;
     }
 
@@ -780,6 +965,8 @@ class GameScene extends Phaser.Scene {
       for (let s = 1; s < this.snake.length; s++) {
         if (this.snake[s].x === b.x && this.snake[s].y === b.y) {
           this.baddies.splice(i, 1);
+          this.baddiesKilled++;
+          this.updateScore();
           playBaddieDeath(this.audioCtx);
           break;
         }
@@ -861,7 +1048,7 @@ class GameScene extends Phaser.Scene {
     this.gameOver = true;
     playGameOver(this.audioCtx);
     this.time.delayedCall(800, () => {
-      this.scene.start('GameOverScene', { level: this.level, length: this.snake.length });
+      this.scene.start('GameOverScene', { level: this.level, length: this.snake.length, baddiesKilled: this.baddiesKilled, maxSnakeLength: this.maxSnakeLength, score: this.currentScore });
     });
   }
 
