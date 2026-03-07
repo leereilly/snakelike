@@ -23,6 +23,13 @@ const COLOR_FLOOR_EXPLORED = '#1a1a1a';
 const COLOR_RAT = '#ffff00';
 const COLOR_BADDIE = '#ff0000';
 const COLOR_STAIRCASE = '#00ffff';
+const COLOR_LAVA = '#ff4400';
+const COLOR_TRAP = '#aa00ff';
+const COLOR_TELEPORTER = '#ff00ff';
+const COLOR_POWERUP_SPEED = '#00ffff';
+const COLOR_POWERUP_SHIELD = '#4488ff';
+const COLOR_POWERUP_PHASE = '#cc88ff';
+const COLOR_BOSS = '#ff6600';
 
 // Baddie AI states
 const AI_MOVING = 0;
@@ -61,7 +68,13 @@ function perpendicularDirs(d) {
 // AUDIO
 // ============================================================
 
+function isSoundEnabled() {
+  try { return localStorage.getItem('snakelike_sound') !== 'off'; }
+  catch (e) { return true; }
+}
+
 function playBeep(context, frequency, duration, type, volume) {
+  if (!isSoundEnabled()) return;
   if (!context) return;
   try {
     const osc = context.createOscillator();
@@ -78,10 +91,12 @@ function playBeep(context, frequency, duration, type, volume) {
 }
 
 function playEatSound(ctx) {
+  if (!isSoundEnabled()) return;
   playBeep(ctx, 880, 80, 'square', 0.08);
 }
 
 function playBaddieDeath(ctx) {
+  if (!isSoundEnabled()) return;
   if (!ctx) return;
   try {
     const osc = ctx.createOscillator();
@@ -99,31 +114,210 @@ function playBaddieDeath(ctx) {
 }
 
 function playStaircaseAppear(ctx) {
+  if (!isSoundEnabled()) return;
   if (!ctx) return;
   try {
-    playBeep(ctx, 660, 100, 'square', 0.08);
-    setTimeout(() => playBeep(ctx, 880, 100, 'square', 0.08), 120);
+    // Triumphant chord: C-E-G played together with slight delays
+    const notes = [523, 659, 784]; // C5, E5, G5
+    notes.forEach((freq, i) => {
+      setTimeout(() => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'square';
+        osc.frequency.value = freq;
+        gain.gain.setValueAtTime(0.06, ctx.currentTime);
+        gain.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.4);
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.start(); osc.stop(ctx.currentTime + 0.4);
+        osc.onended = () => { gain.disconnect(); osc.disconnect(); };
+      }, i * 80);
+    });
   } catch (e) {}
 }
 
 function playGameOver(ctx) {
-  playBeep(ctx, 100, 500, 'sawtooth', 0.08);
+  if (!isSoundEnabled()) return;
+  if (!ctx) return;
+  try {
+    // Descending tone
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(440, ctx.currentTime);
+    osc.frequency.linearRampToValueAtTime(80, ctx.currentTime + 0.8);
+    gain.gain.setValueAtTime(0.1, ctx.currentTime);
+    gain.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.8);
+    osc.connect(gain); gain.connect(ctx.destination);
+    osc.start(); osc.stop(ctx.currentTime + 0.8);
+    osc.onended = () => { gain.disconnect(); osc.disconnect(); };
+    // Low rumble underneath
+    const osc2 = ctx.createOscillator();
+    const gain2 = ctx.createGain();
+    osc2.type = 'triangle';
+    osc2.frequency.value = 55;
+    gain2.gain.setValueAtTime(0.06, ctx.currentTime);
+    gain2.gain.linearRampToValueAtTime(0, ctx.currentTime + 1.0);
+    osc2.connect(gain2); gain2.connect(ctx.destination);
+    osc2.start(); osc2.stop(ctx.currentTime + 1.0);
+    osc2.onended = () => { gain2.disconnect(); osc2.disconnect(); };
+  } catch (e) {}
 }
 
 function playLevelTransition(ctx) {
+  if (!isSoundEnabled()) return;
+  if (!ctx) return;
+  try {
+    // 3-note ascending jingle: D-F#-A
+    const notes = [587, 740, 880]; // D5, F#5, A5
+    notes.forEach((freq, i) => {
+      setTimeout(() => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.value = freq;
+        gain.gain.setValueAtTime(0.08, ctx.currentTime);
+        gain.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.25);
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.start(); osc.stop(ctx.currentTime + 0.25);
+        osc.onended = () => { gain.disconnect(); osc.disconnect(); };
+      }, i * 120);
+    });
+  } catch (e) {}
+}
+
+function playTrapSound(ctx) {
+  if (!isSoundEnabled()) return;
   if (!ctx) return;
   try {
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
-    osc.type = 'triangle';
-    osc.frequency.setValueAtTime(440, ctx.currentTime);
-    osc.frequency.linearRampToValueAtTime(880, ctx.currentTime + 0.3);
-    gain.gain.value = 0.08;
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    osc.start();
-    osc.stop(ctx.currentTime + 0.3);
+    osc.type = 'square';
+    osc.frequency.setValueAtTime(300, ctx.currentTime);
+    osc.frequency.linearRampToValueAtTime(100, ctx.currentTime + 0.15);
+    gain.gain.setValueAtTime(0.06, ctx.currentTime);
+    gain.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.15);
+    osc.connect(gain); gain.connect(ctx.destination);
+    osc.start(); osc.stop(ctx.currentTime + 0.15);
     osc.onended = () => { gain.disconnect(); osc.disconnect(); };
+  } catch (e) {}
+}
+
+function playTeleportSound(ctx) {
+  if (!isSoundEnabled()) return;
+  if (!ctx) return;
+  try {
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(200, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(1200, ctx.currentTime + 0.2);
+    gain.gain.setValueAtTime(0.07, ctx.currentTime);
+    gain.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.25);
+    osc.connect(gain); gain.connect(ctx.destination);
+    osc.start(); osc.stop(ctx.currentTime + 0.25);
+    osc.onended = () => { gain.disconnect(); osc.disconnect(); };
+  } catch (e) {}
+}
+
+function playLaserSound(ctx) {
+  if (!isSoundEnabled()) return;
+  if (!ctx) return;
+  try {
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(1200, ctx.currentTime);
+    osc.frequency.linearRampToValueAtTime(200, ctx.currentTime + 0.15);
+    gain.gain.setValueAtTime(0.08, ctx.currentTime);
+    gain.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.15);
+    osc.connect(gain); gain.connect(ctx.destination);
+    osc.start(); osc.stop(ctx.currentTime + 0.15);
+    osc.onended = () => { gain.disconnect(); osc.disconnect(); };
+  } catch (e) {}
+}
+
+function playBossMove(ctx) {
+  if (!isSoundEnabled()) return;
+  if (!ctx) return;
+  try {
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'sawtooth';
+    osc.frequency.value = 60;
+    gain.gain.setValueAtTime(0.04, ctx.currentTime);
+    gain.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.2);
+    osc.connect(gain); gain.connect(ctx.destination);
+    osc.start(); osc.stop(ctx.currentTime + 0.2);
+    osc.onended = () => { gain.disconnect(); osc.disconnect(); };
+  } catch (e) {}
+}
+
+function playBossHit(ctx) {
+  if (!isSoundEnabled()) return;
+  if (!ctx) return;
+  try {
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'square';
+    osc.frequency.setValueAtTime(150, ctx.currentTime);
+    osc.frequency.linearRampToValueAtTime(80, ctx.currentTime + 0.3);
+    gain.gain.setValueAtTime(0.1, ctx.currentTime);
+    gain.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.3);
+    osc.connect(gain); gain.connect(ctx.destination);
+    osc.start(); osc.stop(ctx.currentTime + 0.3);
+    osc.onended = () => { gain.disconnect(); osc.disconnect(); };
+  } catch (e) {}
+}
+
+function playPowerupPickup(ctx, type) {
+  if (!isSoundEnabled()) return;
+  if (!ctx) return;
+  try {
+    const freqs = { speed: [600, 800, 1000], shield: [400, 500, 600], phase: [500, 700, 900] };
+    const notes = freqs[type] || freqs.speed;
+    notes.forEach((freq, i) => {
+      setTimeout(() => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.value = freq;
+        gain.gain.setValueAtTime(0.07, ctx.currentTime);
+        gain.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.15);
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.start(); osc.stop(ctx.currentTime + 0.15);
+        osc.onended = () => { gain.disconnect(); osc.disconnect(); };
+      }, i * 60);
+    });
+  } catch (e) {}
+}
+
+function playLevelStartDrone(ctx) {
+  if (!ctx) return;
+  try {
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(55, ctx.currentTime);
+    osc.frequency.linearRampToValueAtTime(65, ctx.currentTime + 1.5);
+    gain.gain.setValueAtTime(0, ctx.currentTime);
+    gain.gain.linearRampToValueAtTime(0.05, ctx.currentTime + 0.3);
+    gain.gain.linearRampToValueAtTime(0.04, ctx.currentTime + 1.0);
+    gain.gain.linearRampToValueAtTime(0, ctx.currentTime + 1.5);
+    osc.connect(gain); gain.connect(ctx.destination);
+    osc.start(); osc.stop(ctx.currentTime + 1.5);
+    osc.onended = () => { gain.disconnect(); osc.disconnect(); };
+    // Eerie high overtone
+    const osc2 = ctx.createOscillator();
+    const gain2 = ctx.createGain();
+    osc2.type = 'sine';
+    osc2.frequency.setValueAtTime(880, ctx.currentTime);
+    osc2.frequency.linearRampToValueAtTime(660, ctx.currentTime + 1.5);
+    gain2.gain.setValueAtTime(0, ctx.currentTime);
+    gain2.gain.linearRampToValueAtTime(0.02, ctx.currentTime + 0.5);
+    gain2.gain.linearRampToValueAtTime(0, ctx.currentTime + 1.5);
+    osc2.connect(gain2); gain2.connect(ctx.destination);
+    osc2.start(); osc2.stop(ctx.currentTime + 1.5);
+    osc2.onended = () => { gain2.disconnect(); osc2.disconnect(); };
   } catch (e) {}
 }
 
@@ -295,7 +489,7 @@ function carveVCorridor(grid, y1, y2, x) {
   }
 }
 
-function generateDungeon(mapW, mapH) {
+function generateDungeon(mapW, mapH, level) {
   const grid = [];
   for (let y = 0; y < mapH; y++) {
     grid[y] = new Array(mapW).fill(WALL);
@@ -318,7 +512,87 @@ function generateDungeon(mapW, mapH) {
     grid[y][mapW - 1] = WALL;
   }
 
-  return { grid, rooms };
+  // Place hazards
+  const lavaTiles = [];
+  const trapTiles = [];
+  const teleporters = [];
+  const occupied = new Set();
+
+  function randomFloorInRoom(room) {
+    for (let attempts = 0; attempts < 100; attempts++) {
+      const x = room.x + 1 + Math.floor(Math.random() * Math.max(1, room.w - 2));
+      const y = room.y + 1 + Math.floor(Math.random() * Math.max(1, room.h - 2));
+      if (x <= 0 || x >= mapW - 1 || y <= 0 || y >= mapH - 1) continue;
+      if (grid[y][x] !== FLOOR) continue;
+      const key = y * mapW + x;
+      if (occupied.has(key)) continue;
+      return { x, y };
+    }
+    return null;
+  }
+
+  function randomCorridorFloor() {
+    for (let attempts = 0; attempts < 200; attempts++) {
+      const x = 2 + Math.floor(Math.random() * (mapW - 4));
+      const y = 2 + Math.floor(Math.random() * (mapH - 4));
+      if (grid[y][x] !== FLOOR) continue;
+      let inRoom = false;
+      for (const room of rooms) {
+        if (x >= room.x && x < room.x + room.w && y >= room.y && y < room.y + room.h) {
+          inRoom = true; break;
+        }
+      }
+      if (inRoom) continue;
+      const key = y * mapW + x;
+      if (occupied.has(key)) continue;
+      return { x, y };
+    }
+    for (let y = 2; y < mapH - 2; y++) {
+      for (let x = 2; x < mapW - 2; x++) {
+        if (grid[y][x] === FLOOR && !occupied.has(y * mapW + x)) return { x, y };
+      }
+    }
+    return null;
+  }
+
+  // Lava: 2-4 per level, placed in corridors
+  const numLava = 2 + Math.floor(Math.random() * 3);
+  for (let i = 0; i < numLava; i++) {
+    const pos = randomCorridorFloor();
+    if (pos) {
+      lavaTiles.push(pos);
+      occupied.add(pos.y * mapW + pos.x);
+    }
+  }
+
+  // Traps: 3-6 per level, spread across different rooms
+  const numTraps = 3 + Math.floor(Math.random() * 4);
+  for (let i = 0; i < numTraps; i++) {
+    const room = rooms[Math.floor(Math.random() * rooms.length)];
+    const pos = randomFloorInRoom(room);
+    if (pos) {
+      trapTiles.push(pos);
+      occupied.add(pos.y * mapW + pos.x);
+    }
+  }
+
+  // Teleporters: 1 pair per level
+  if (rooms.length >= 2) {
+    const r1 = rooms[Math.floor(Math.random() * rooms.length)];
+    let r2 = rooms[Math.floor(Math.random() * rooms.length)];
+    let tries = 0;
+    while (r2 === r1 && tries < 20) { r2 = rooms[Math.floor(Math.random() * rooms.length)]; tries++; }
+    const p1 = randomFloorInRoom(r1);
+    const p2 = randomFloorInRoom(r2);
+    if (p1 && p2) {
+      teleporters.push({ x: p1.x, y: p1.y, pairX: p2.x, pairY: p2.y });
+      teleporters.push({ x: p2.x, y: p2.y, pairX: p1.x, pairY: p1.y });
+      occupied.add(p1.y * mapW + p1.x);
+      occupied.add(p2.y * mapW + p2.x);
+    }
+  }
+
+  return { grid, rooms, lavaTiles, trapTiles, teleporters };
 }
 
 // ============================================================
@@ -404,6 +678,13 @@ class TitleScene extends Phaser.Scene {
     this.flameSet = new Set();
     this.handleChars = [];
     this.showTitle();
+
+    // Show tutorial on first play
+    try {
+      if (!localStorage.getItem('snakelike_tutorial_seen')) {
+        this.showTutorial();
+      }
+    } catch (e) {}
   }
 
   clearScreen() {
@@ -551,6 +832,10 @@ class TitleScene extends Phaser.Scene {
       fontFamily: 'monospace', fontSize: '48px', color: '#00ff00'
     }).setOrigin(0.5);
 
+    this.add.text(cx, cy - 5, 'Descend the Endless Dungeon. Consume. Grow. Survive.', {
+      fontFamily: 'monospace', fontSize: '12px', color: '#666666'
+    }).setOrigin(0.5);
+
     this.promptText = this.add.text(cx, cy + 30, 'Press any key to start', {
       fontFamily: 'monospace', fontSize: '18px', color: '#888888'
     }).setOrigin(0.5);
@@ -574,6 +859,10 @@ class TitleScene extends Phaser.Scene {
 
     this.add.text(cx, cy - 40, 'SN@KELIKE', {
       fontFamily: 'monospace', fontSize: '48px', color: '#00ff00'
+    }).setOrigin(0.5);
+
+    this.add.text(cx, cy - 5, 'Descend the Endless Dungeon. Consume. Grow. Survive.', {
+      fontFamily: 'monospace', fontSize: '12px', color: '#666666'
     }).setOrigin(0.5);
 
     const entries = this.leaderboardEntries || [];
@@ -610,6 +899,79 @@ class TitleScene extends Phaser.Scene {
 
     this.switchTimer = this.time.delayedCall(8000, () => {
       this.showTitle();
+    });
+  }
+
+  showTutorial() {
+    // Remove any existing key listeners to prevent starting game during tutorial
+    this.input.keyboard.removeAllListeners();
+    if (this.switchTimer) { this.switchTimer.remove(); this.switchTimer = null; }
+
+    this.tutorialStep = 0;
+    const tips = [
+      'Arrow keys or WASD to move',
+      'Eat 🟡 rats to grow longer',
+      'Lure 🔴 baddies into your body\nto kill them — head-on hits hurt YOU',
+      'Kill all baddies to reveal\nthe staircase 🔵'
+    ];
+
+    const cam = this.cameras.main;
+    const cx = cam.width / 2;
+    const cy = cam.height / 2;
+
+    // Semi-transparent overlay
+    this.tutorialOverlay = this.add.rectangle(cx, cy, cam.width + 200, cam.height + 200, 0x000000, 0.85).setDepth(300);
+
+    this.tutorialTitle = this.add.text(cx, cy - 80, 'HOW TO PLAY', {
+      fontFamily: 'monospace', fontSize: '28px', color: '#00ff00'
+    }).setOrigin(0.5).setDepth(301);
+
+    this.tutorialTip = this.add.text(cx, cy, tips[0], {
+      fontFamily: 'monospace', fontSize: '20px', color: '#ffffff', align: 'center', lineSpacing: 6
+    }).setOrigin(0.5).setDepth(301);
+
+    this.tutorialProgress = this.add.text(cx, cy + 70, '1 / 4', {
+      fontFamily: 'monospace', fontSize: '14px', color: '#555555'
+    }).setOrigin(0.5).setDepth(301);
+
+    this.tutorialPrompt = this.add.text(cx, cy + 100, 'Press SPACE or ENTER to continue', {
+      fontFamily: 'monospace', fontSize: '14px', color: '#888888'
+    }).setOrigin(0.5).setDepth(301);
+
+    // Pulse the prompt
+    this.tweens.add({
+      targets: this.tutorialPrompt, alpha: 0.3,
+      duration: 600, yoyo: true, repeat: -1
+    });
+
+    const advanceTutorial = (event) => {
+      if (event.key !== ' ' && event.key !== 'Enter') return;
+      this.tutorialStep++;
+      if (this.tutorialStep >= tips.length) {
+        // Tutorial complete
+        try { localStorage.setItem('snakelike_tutorial_seen', '1'); } catch(e) {}
+        this.closeTutorial();
+        return;
+      }
+      this.tutorialTip.setText(tips[this.tutorialStep]);
+      this.tutorialProgress.setText(`${this.tutorialStep + 1} / ${tips.length}`);
+    };
+
+    this.input.keyboard.on('keydown', advanceTutorial);
+  }
+
+  closeTutorial() {
+    if (this.tutorialOverlay) { this.tutorialOverlay.destroy(); this.tutorialOverlay = null; }
+    if (this.tutorialTitle) { this.tutorialTitle.destroy(); this.tutorialTitle = null; }
+    if (this.tutorialTip) { this.tutorialTip.destroy(); this.tutorialTip = null; }
+    if (this.tutorialProgress) { this.tutorialProgress.destroy(); this.tutorialProgress = null; }
+    if (this.tutorialPrompt) { this.tutorialPrompt.destroy(); this.tutorialPrompt = null; }
+    // Re-add the start listener
+    this.input.keyboard.removeAllListeners();
+    this.addStartListener();
+    // Restart the leaderboard switch timer
+    this.switchTimer = this.time.delayedCall(3000, () => {
+      this.showTitleLeaderboard();
     });
   }
 
@@ -698,7 +1060,7 @@ class TransitionScene extends Phaser.Scene {
     // ======== Generate dungeon & entities ========
     const mapW = 35 + 5 * this.level;
     const mapH = 27 + 3 * this.level;
-    const dungeon = generateDungeon(mapW, mapH);
+    const dungeon = generateDungeon(mapW, mapH, this.level);
     const grid = dungeon.grid;
     const rooms = dungeon.rooms;
 
@@ -734,7 +1096,10 @@ class TransitionScene extends Phaser.Scene {
       grid, rooms, mapW, mapH,
       snakeX, snakeY,
       rats: ratsArr,
-      baddies: baddiesArr
+      baddies: baddiesArr,
+      lavaTiles: dungeon.lavaTiles || [],
+      trapTiles: dungeon.trapTiles || [],
+      teleporters: dungeon.teleporters || []
     };
 
     // Find a floor tile adjacent to the snake for the intro staircase
@@ -1251,6 +1616,10 @@ class GameOverScene extends Phaser.Scene {
       fontFamily: 'monospace', fontSize: '48px', color: '#ff0000'
     }).setOrigin(0.5);
 
+    this.add.text(cx, cy - 45, `You reached depth ${this.level} of the Endless Dungeon`, {
+      fontFamily: 'monospace', fontSize: '14px', color: '#888888'
+    }).setOrigin(0.5);
+
     this.add.text(cx, cy - 30, `Level: ${this.level}   Kills: ${this.baddiesKilled}   Max Length: ${this.maxSnakeLength}   Score: ${this.score}`, {
       fontFamily: 'monospace', fontSize: '18px', color: '#ffffff'
     }).setOrigin(0.5);
@@ -1329,6 +1698,10 @@ class GameOverScene extends Phaser.Scene {
       fontFamily: 'monospace', fontSize: '48px', color: '#ff0000'
     }).setOrigin(0.5);
 
+    this.add.text(cx, cy - 45, `You reached depth ${this.level} of the Endless Dungeon`, {
+      fontFamily: 'monospace', fontSize: '14px', color: '#888888'
+    }).setOrigin(0.5);
+
     this.add.text(cx, cy - 30, `Level: ${this.level}   Kills: ${this.baddiesKilled}   Max Length: ${this.maxSnakeLength}   Score: ${this.score}`, {
       fontFamily: 'monospace', fontSize: '18px', color: '#ffffff'
     }).setOrigin(0.5);
@@ -1370,7 +1743,67 @@ class GameOverScene extends Phaser.Scene {
     }).setOrigin(0.5);
 
     this.input.keyboard.on('keydown', () => {
-      this.scene.start('GameScene', { level: 1, snakeLength: 1 });
+      this.scene.start('TitleScene');
+    });
+  }
+}
+
+// ============================================================
+// FLAVOR TEXT SCENE — Between levels
+// ============================================================
+
+const FLAVOR_TEXTS = [
+  'The walls writhe as you descend deeper...',
+  'Something slithers in the darkness below...',
+  'The air grows thick with ancient dust...',
+  'Echoes of forgotten creatures haunt these halls...',
+  'The dungeon pulses with a heartbeat not your own...',
+  'Deeper still... the stones whisper your name...',
+  'A chill wind carries the scent of decay...',
+  'The shadows move when you are not looking...',
+  'You feel the weight of the earth above you...',
+  'The darkness here has teeth...'
+];
+
+class FlavorTextScene extends Phaser.Scene {
+  constructor() { super('FlavorTextScene'); }
+
+  init(data) {
+    this.nextLevel = data.level || 2;
+    this.snakeLength = data.snakeLength || 1;
+    this.baddiesKilled = data.baddiesKilled || 0;
+    this.maxSnakeLength = data.maxSnakeLength || 1;
+    this.currentScore = data.score || 0;
+  }
+
+  create() {
+    const cx = this.cameras.main.centerX;
+    const cy = this.cameras.main.centerY;
+
+    const text = FLAVOR_TEXTS[Math.floor(Math.random() * FLAVOR_TEXTS.length)];
+
+    this.add.text(cx, cy, text, {
+      fontFamily: 'monospace', fontSize: '18px', color: '#888888',
+      align: 'center', wordWrap: { width: 600 }
+    }).setOrigin(0.5).setAlpha(0);
+
+    // Fade in
+    this.tweens.add({
+      targets: this.children.list[0],
+      alpha: 1,
+      duration: 500,
+      ease: 'Sine.easeIn'
+    });
+
+    // Transition to next level after 2 seconds
+    this.time.delayedCall(2000, () => {
+      this.scene.start('TransitionScene', {
+        level: this.nextLevel,
+        snakeLength: this.snakeLength,
+        baddiesKilled: this.baddiesKilled,
+        maxSnakeLength: this.maxSnakeLength,
+        score: this.currentScore
+      });
     });
   }
 }
@@ -1409,9 +1842,10 @@ class GameScene extends Phaser.Scene {
     } else {
       this.mapW = 35 + 5 * this.level;
       this.mapH = 27 + 3 * this.level;
-      const dungeon = generateDungeon(this.mapW, this.mapH);
+      const dungeon = generateDungeon(this.mapW, this.mapH, this.level);
       this.grid = dungeon.grid;
       this.rooms = dungeon.rooms;
+      this._dungeonHazards = dungeon;
     }
 
     // Visibility
@@ -1496,7 +1930,8 @@ class GameScene extends Phaser.Scene {
         shiftDirection: b.shiftDirection
       }));
     } else {
-      this.numBaddies = 4 + this.level;
+      const isBossLevel = this.level % 5 === 0;
+      this.numBaddies = isBossLevel ? Math.floor((4 + this.level) / 2) : 4 + this.level;
       this.baddies = [];
       const allDirs = [DIR.UP, DIR.DOWN, DIR.LEFT, DIR.RIGHT];
       for (let i = 0; i < this.numBaddies; i++) {
@@ -1509,7 +1944,50 @@ class GameScene extends Phaser.Scene {
       }
     }
 
+    // Boss enemy (every 5th level)
+    this.boss = null;
+    this.bossFlashTimer = 0;
+    if (this.level % 5 === 0) {
+      const bossPos = this.randomFloorTile();
+      this.boss = {
+        x: bossPos.x, y: bossPos.y,
+        hp: 3,
+        maxHp: 3,
+        flashing: false
+      };
+    }
+
+    // Place hazards
+    if (this.preGenerated) {
+      this.lavaTiles = this.preGenerated.lavaTiles || [];
+      this.trapTiles = this.preGenerated.trapTiles || [];
+      this.teleporters = this.preGenerated.teleporters || [];
+    } else if (this._dungeonHazards) {
+      this.lavaTiles = this._dungeonHazards.lavaTiles || [];
+      this.trapTiles = this._dungeonHazards.trapTiles || [];
+      this.teleporters = this._dungeonHazards.teleporters || [];
+      this._dungeonHazards = null;
+    } else {
+      this.lavaTiles = [];
+      this.trapTiles = [];
+      this.teleporters = [];
+    }
+
     this.preGenerated = null;
+
+    // Place power-ups
+    this.powerups = [];
+    const powerupTypes = ['speed', 'shield', 'phase'];
+    for (let i = 0; i < 3; i++) {
+      const pos = this.randomFloorTile();
+      this.powerups.push({ x: pos.x, y: pos.y, type: powerupTypes[i] });
+    }
+
+    // Active power-up state
+    this.activePowerup = null;
+    this.shieldActive = false;
+    this.phaseActive = false;
+    this.originalSnakeMoveInterval = 200;
 
     this.staircase = null;
     this.staircasePlaced = false;
@@ -1557,6 +2035,12 @@ class GameScene extends Phaser.Scene {
     this.keyS = this.input.keyboard.addKey('S');
     this.keyD = this.input.keyboard.addKey('D');
 
+    this.paused = false;
+    this.pauseOverlay = null;
+    this.keyESC = this.input.keyboard.addKey('ESC');
+    this.keyP = this.input.keyboard.addKey('P');
+    this.keySPACE = this.input.keyboard.addKey('SPACE');
+
     // Timers
     this.snakeMoveTimer = 0;
     this.snakeMoveInterval = 200;
@@ -1565,8 +2049,15 @@ class GameScene extends Phaser.Scene {
 
     this.gameOver = false;
 
+    // Projectiles
+    this.projectiles = [];
+    this.projectileMoveTimer = 0;
+    this.projectileMoveInterval = 100;
+
     // Initial FOV
     computeFOV(this.grid, this.visibility, this.snake[0].x, this.snake[0].y, FOV_RADIUS);
+
+    playLevelStartDrone(this.audioCtx);
 
     // Render initial state
     this.renderMap();
@@ -1596,6 +2087,11 @@ class GameScene extends Phaser.Scene {
       if (this.baddies && this.baddies.some(b => b.x === x && b.y === y)) continue;
       // Check not on staircase
       if (this.staircase && this.staircase.x === x && this.staircase.y === y) continue;
+      // Check not on hazards
+      if (this.lavaTiles && this.lavaTiles.some(l => l.x === x && l.y === y)) continue;
+      if (this.trapTiles && this.trapTiles.some(t => t.x === x && t.y === y)) continue;
+      if (this.teleporters && this.teleporters.some(t => t.x === x && t.y === y)) continue;
+      if (this.powerups && this.powerups.some(p => p.x === x && p.y === y)) continue;
       return { x, y };
     }
     // Fallback: just find any floor tile
@@ -1609,6 +2105,20 @@ class GameScene extends Phaser.Scene {
 
   update(time, delta) {
     if (this.gameOver) return;
+
+    if (Phaser.Input.Keyboard.JustDown(this.keyESC) || Phaser.Input.Keyboard.JustDown(this.keyP)) {
+      this.togglePause();
+    }
+    if (this.paused) {
+      if (this.keyM && Phaser.Input.Keyboard.JustDown(this.keyM)) {
+        const current = isSoundEnabled();
+        try { localStorage.setItem('snakelike_sound', current ? 'off' : 'on'); } catch(e) {}
+        if (this.pauseSoundText) {
+          this.pauseSoundText.setText(`Sound: ${!current ? 'ON' : 'OFF'}  [Press M to toggle]`);
+        }
+      }
+      return;
+    }
 
     // Read input
     this.handleInput();
@@ -1628,16 +2138,50 @@ class GameScene extends Phaser.Scene {
       if (this.baddieMoveTimer >= this.baddieMoveInterval) {
         this.baddieMoveTimer -= this.baddieMoveInterval;
         this.moveBaddies();
+        this.moveBoss();
+      }
+    }
+
+    // Projectile movement timer
+    if (this.projectiles.length > 0) {
+      this.projectileMoveTimer += delta;
+      if (this.projectileMoveTimer >= this.projectileMoveInterval) {
+        this.projectileMoveTimer -= this.projectileMoveInterval;
+        this.moveProjectiles();
       }
     }
 
     // Update HUD
     const aliveRats = this.rats.length;
     const aliveBaddies = this.baddies.length;
-    this.hudText.setText(
-      `Level: ${this.level}  Rats: ${aliveRats}  Baddies: ${aliveBaddies}  Length: ${this.snake.length}`
-    );
+    const canFire = this.snake.length >= 3 && this.direction;
+    let hudStr = `Level: ${this.level}  Rats: ${aliveRats}  Baddies: ${aliveBaddies}  Length: ${this.snake.length}  ${canFire ? '[SPACE:Fire]' : ''}`;
+    if (this.boss) {
+      hudStr += `  Boss: ${'♥'.repeat(this.boss.hp)}${'♡'.repeat(this.boss.maxHp - this.boss.hp)}`;
+    }
+    if (this.activePowerup) {
+      const icons = { speed: '⚡', shield: '🛡️', phase: '👻' };
+      const secs = Math.ceil(this.activePowerup.remaining / 1000);
+      hudStr += `  ${icons[this.activePowerup.type]} ${secs}s`;
+    }
+    this.hudText.setText(hudStr);
     this.scoreText.setText(`Score: ${this.currentScore}`);
+
+    // Update power-up timer
+    if (this.activePowerup) {
+      this.activePowerup.remaining -= delta;
+      if (this.activePowerup.remaining <= 0) {
+        this.deactivatePowerup();
+      }
+    }
+
+    // Boss flash timer
+    if (this.boss && this.boss.flashing) {
+      this.bossFlashTimer -= delta;
+      if (this.bossFlashTimer <= 0) {
+        this.boss.flashing = false;
+      }
+    }
 
     // Update camera follow target
     const head = this.snake[0];
@@ -1674,6 +2218,88 @@ class GameScene extends Phaser.Scene {
         }
       }
     }
+
+    // Fire projectile with SPACE
+    if (Phaser.Input.Keyboard.JustDown(this.keySPACE) && this.direction && this.snake.length >= 3) {
+      this.fireProjectile();
+    }
+  }
+
+  fireProjectile() {
+    this.snake.pop();
+    this.snake.pop();
+
+    const head = this.snake[0];
+    this.projectiles.push({
+      x: head.x + this.direction.x,
+      y: head.y + this.direction.y,
+      dx: this.direction.x,
+      dy: this.direction.y
+    });
+
+    playLaserSound(this.audioCtx);
+  }
+
+  moveProjectiles() {
+    for (let i = this.projectiles.length - 1; i >= 0; i--) {
+      const p = this.projectiles[i];
+      p.x += p.dx;
+      p.y += p.dy;
+
+      // Wall collision
+      if (p.x <= 0 || p.x >= this.mapW - 1 || p.y <= 0 || p.y >= this.mapH - 1 ||
+          this.grid[p.y][p.x] === WALL) {
+        this.projectiles.splice(i, 1);
+        continue;
+      }
+
+      // Baddie collision
+      let hit = false;
+      for (let j = this.baddies.length - 1; j >= 0; j--) {
+        if (this.baddies[j].x === p.x && this.baddies[j].y === p.y) {
+          this.baddies.splice(j, 1);
+          this.baddiesKilled++;
+          this.updateScore();
+          playBaddieDeath(this.audioCtx);
+          this.cameras.main.flash(100, 255, 255, 255, false, null, null, 0.2);
+          hit = true;
+          break;
+        }
+      }
+      // Boss collision
+      if (!hit && this.boss) {
+        for (let oy = 0; oy < 2; oy++) {
+          for (let ox = 0; ox < 2; ox++) {
+            if (p.x === this.boss.x + ox && p.y === this.boss.y + oy) {
+              this.boss.hp--;
+              this.boss.flashing = true;
+              this.bossFlashTimer = 300;
+              playBossHit(this.audioCtx);
+              this.cameras.main.shake(200, 0.01);
+              if (this.boss.hp <= 0) {
+                this.boss = null;
+                this.baddiesKilled++;
+                this.currentScore += 100;
+                this.cameras.main.flash(200, 255, 200, 0, false, null, null, 0.4);
+                playBaddieDeath(this.audioCtx);
+                if (this.baddies.length === 0 && !this.staircasePlaced) {
+                  this.placeStaircase();
+                }
+              }
+              hit = true;
+              break;
+            }
+          }
+          if (hit) break;
+        }
+      }
+      if (hit) {
+        this.projectiles.splice(i, 1);
+        if (this.baddies.length === 0 && !this.boss && !this.staircasePlaced) {
+          this.placeStaircase();
+        }
+      }
+    }
   }
 
   moveSnake() {
@@ -1690,10 +2316,32 @@ class GameScene extends Phaser.Scene {
     const newHead = { x: head.x + this.direction.x, y: head.y + this.direction.y };
 
     // Wall collision
-    if (newHead.x < 0 || newHead.x >= this.mapW || newHead.y < 0 || newHead.y >= this.mapH ||
-        this.grid[newHead.y][newHead.x] === WALL) {
+    if (newHead.x < 0 || newHead.x >= this.mapW || newHead.y < 0 || newHead.y >= this.mapH) {
       this.doGameOver();
       return;
+    }
+    if (this.grid[newHead.y][newHead.x] === WALL) {
+      if (this.phaseActive) {
+        // Phase: pass through walls, find next floor tile in same direction
+        let wx = newHead.x, wy = newHead.y;
+        for (let step = 0; step < 20; step++) {
+          wx += this.direction.x;
+          wy += this.direction.y;
+          if (wx <= 0 || wx >= this.mapW - 1 || wy <= 0 || wy >= this.mapH - 1) break;
+          if (this.grid[wy][wx] === FLOOR) {
+            newHead.x = wx;
+            newHead.y = wy;
+            break;
+          }
+        }
+        if (this.grid[newHead.y][newHead.x] === WALL) {
+          this.doGameOver();
+          return;
+        }
+      } else {
+        this.doGameOver();
+        return;
+      }
     }
 
     // Self-collision (check against body segments, not the tail if we're about to remove it)
@@ -1716,6 +2364,54 @@ class GameScene extends Phaser.Scene {
       this.snake.pop();
     }
 
+    // Check lava collision (instant death)
+    for (const lava of this.lavaTiles) {
+      if (newHead.x === lava.x && newHead.y === lava.y) {
+        this.cameras.main.flash(200, 255, 68, 0, false, null, null, 0.5);
+        this.doGameOver();
+        return;
+      }
+    }
+
+    // Check trap collision (lose 1 segment)
+    for (let i = this.trapTiles.length - 1; i >= 0; i--) {
+      if (newHead.x === this.trapTiles[i].x && newHead.y === this.trapTiles[i].y) {
+        if (this.snake.length <= 1) {
+          this.doGameOver();
+          return;
+        }
+        this.snake.pop();
+        this.trapTiles.splice(i, 1);
+        playTrapSound(this.audioCtx);
+        this.cameras.main.flash(100, 170, 0, 255, false, null, null, 0.2);
+        break;
+      }
+    }
+
+    // Check teleporter collision
+    for (const tp of this.teleporters) {
+      if (newHead.x === tp.x && newHead.y === tp.y) {
+        this.snake[0].x = tp.pairX;
+        this.snake[0].y = tp.pairY;
+        playTeleportSound(this.audioCtx);
+        this.cameras.main.flash(150, 255, 0, 255, false, null, null, 0.25);
+        newHead.x = tp.pairX;
+        newHead.y = tp.pairY;
+        break;
+      }
+    }
+
+    // Check power-up collision
+    for (let i = this.powerups.length - 1; i >= 0; i--) {
+      const pu = this.powerups[i];
+      if (newHead.x === pu.x && newHead.y === pu.y) {
+        this.powerups.splice(i, 1);
+        this.activatePowerup(pu.type);
+        playPowerupPickup(this.audioCtx, pu.type);
+        break;
+      }
+    }
+
     // Check body↔baddie collision (body kills baddie)
     for (let i = this.baddies.length - 1; i >= 0; i--) {
       const b = this.baddies[i];
@@ -1725,12 +2421,46 @@ class GameScene extends Phaser.Scene {
           this.baddiesKilled++;
           this.updateScore();
           playBaddieDeath(this.audioCtx);
+          // White flash when killing baddie via body
+          this.cameras.main.flash(100, 255, 255, 255, false, null, null, 0.2);
           break;
         }
       }
     }
-    if (this.baddies.length === 0 && !this.staircasePlaced) {
+    if (this.baddies.length === 0 && !this.boss && !this.staircasePlaced) {
       this.placeStaircase();
+    }
+
+    // Check body↔boss collision
+    if (this.boss) {
+      for (let oy = 0; oy < 2; oy++) {
+        for (let ox = 0; ox < 2; ox++) {
+          const tx = this.boss.x + ox;
+          const ty = this.boss.y + oy;
+          for (let s = 1; s < this.snake.length; s++) {
+            if (this.snake[s].x === tx && this.snake[s].y === ty) {
+              this.boss.hp--;
+              this.boss.flashing = true;
+              this.bossFlashTimer = 300;
+              playBossHit(this.audioCtx);
+              this.cameras.main.shake(200, 0.01);
+              if (this.boss.hp <= 0) {
+                this.boss = null;
+                this.baddiesKilled++;
+                this.currentScore += 100;
+                this.cameras.main.flash(200, 255, 200, 0, false, null, null, 0.4);
+                playBaddieDeath(this.audioCtx);
+                if (this.baddies.length === 0 && !this.staircasePlaced) {
+                  this.placeStaircase();
+                }
+              }
+              break;
+            }
+          }
+          if (!this.boss) break;
+        }
+        if (!this.boss) break;
+      }
     }
 
     // Check rat collision
@@ -1743,6 +2473,8 @@ class GameScene extends Phaser.Scene {
           this.updateScore();
         }
         playEatSound(this.audioCtx);
+        // Subtle green pulse when eating rat
+        this.cameras.main.flash(120, 0, 255, 0, false, null, null, 0.15);
         break;
       }
     }
@@ -1750,20 +2482,55 @@ class GameScene extends Phaser.Scene {
     // Check baddie-head collision (damage): always net -1 length
     for (let i = this.baddies.length - 1; i >= 0; i--) {
       if (this.baddies[i].x === newHead.x && this.baddies[i].y === newHead.y) {
+        if (this.shieldActive) {
+          // Shield absorbs the hit
+          this.shieldActive = false;
+          this.activePowerup = null;
+          this.cameras.main.flash(150, 68, 136, 255, false, null, null, 0.3);
+          break;
+        }
         const pops = grewThisTick ? 2 : 1;
         if (this.snake.length <= pops) {
           this.doGameOver();
           return;
         }
         for (let p = 0; p < pops; p++) this.snake.pop();
+        // Screen shake + red flash on damage
+        this.cameras.main.shake(150, 0.008);
+        this.cameras.main.flash(100, 255, 0, 0, false, null, null, 0.3);
         break;
+      }
+    }
+
+    // Check boss-head collision (damage)
+    if (this.boss) {
+      for (let oy = 0; oy < 2; oy++) {
+        for (let ox = 0; ox < 2; ox++) {
+          if (newHead.x === this.boss.x + ox && newHead.y === this.boss.y + oy) {
+            if (this.shieldActive) {
+              this.shieldActive = false;
+              this.activePowerup = null;
+              this.cameras.main.flash(150, 68, 136, 255, false, null, null, 0.3);
+            } else {
+              const pops = grewThisTick ? 2 : 1;
+              if (this.snake.length <= pops) {
+                this.doGameOver();
+                return;
+              }
+              for (let p = 0; p < pops; p++) this.snake.pop();
+              this.cameras.main.shake(150, 0.008);
+              this.cameras.main.flash(100, 255, 0, 0, false, null, null, 0.3);
+            }
+            break;
+          }
+        }
       }
     }
 
     // Check staircase
     if (this.staircase && newHead.x === this.staircase.x && newHead.y === this.staircase.y) {
       playLevelTransition(this.audioCtx);
-      this.scene.start('GameScene', { level: this.level + 1, snakeLength: this.snake.length, baddiesKilled: this.baddiesKilled, maxSnakeLength: this.maxSnakeLength, score: this.currentScore });
+      this.scene.start('FlavorTextScene', { level: this.level + 1, snakeLength: this.snake.length, baddiesKilled: this.baddiesKilled, maxSnakeLength: this.maxSnakeLength, score: this.currentScore });
       return;
     }
 
@@ -1828,6 +2595,8 @@ class GameScene extends Phaser.Scene {
           this.baddiesKilled++;
           this.updateScore();
           playBaddieDeath(this.audioCtx);
+          // White flash when killing baddie
+          this.cameras.main.flash(100, 255, 255, 255, false, null, null, 0.2);
           break;
         }
       }
@@ -1837,17 +2606,135 @@ class GameScene extends Phaser.Scene {
     for (let i = this.baddies.length - 1; i >= 0; i--) {
       const b = this.baddies[i];
       if (b.x === this.snake[0].x && b.y === this.snake[0].y) {
+        if (this.shieldActive) {
+          this.shieldActive = false;
+          this.activePowerup = null;
+          this.cameras.main.flash(150, 68, 136, 255, false, null, null, 0.3);
+          continue;
+        }
         if (this.snake.length <= 1) {
           this.doGameOver();
           return;
         }
         this.snake.pop();
+        // Screen shake + red flash on damage
+        this.cameras.main.shake(150, 0.008);
+        this.cameras.main.flash(100, 255, 0, 0, false, null, null, 0.3);
       }
     }
 
     // Check if all baddies dead -> place staircase
-    if (this.baddies.length === 0 && !this.staircasePlaced) {
+    if (this.baddies.length === 0 && !this.boss && !this.staircasePlaced) {
       this.placeStaircase();
+    }
+  }
+
+  moveBoss() {
+    if (!this.boss) return;
+    
+    const head = this.snake[0];
+    const b = this.boss;
+    
+    // Simple chase AI: move toward snake head
+    let dx = 0, dy = 0;
+    if (Math.abs(head.x - b.x) > Math.abs(head.y - b.y)) {
+      dx = head.x > b.x ? 1 : (head.x < b.x ? -1 : 0);
+    } else {
+      dy = head.y > b.y ? 1 : (head.y < b.y ? -1 : 0);
+    }
+    
+    const nx = b.x + dx;
+    const ny = b.y + dy;
+    
+    // Check all 2x2 tiles the boss would occupy
+    let canMove = true;
+    for (let oy = 0; oy < 2; oy++) {
+      for (let ox = 0; ox < 2; ox++) {
+        const tx = nx + ox;
+        const ty = ny + oy;
+        if (tx <= 0 || tx >= this.mapW - 1 || ty <= 0 || ty >= this.mapH - 1) { canMove = false; break; }
+        if (this.grid[ty][tx] === WALL) { canMove = false; break; }
+      }
+      if (!canMove) break;
+    }
+    
+    if (canMove) {
+      b.x = nx;
+      b.y = ny;
+    } else {
+      // Try alternate direction
+      const altDx = dx === 0 ? (Math.random() < 0.5 ? 1 : -1) : 0;
+      const altDy = dy === 0 ? (Math.random() < 0.5 ? 1 : -1) : 0;
+      const anx = b.x + altDx;
+      const any = b.y + altDy;
+      let canAlt = true;
+      for (let oy = 0; oy < 2; oy++) {
+        for (let ox = 0; ox < 2; ox++) {
+          const tx = anx + ox;
+          const ty = any + oy;
+          if (tx <= 0 || tx >= this.mapW - 1 || ty <= 0 || ty >= this.mapH - 1) { canAlt = false; break; }
+          if (this.grid[ty][tx] === WALL) { canAlt = false; break; }
+        }
+        if (!canAlt) break;
+      }
+      if (canAlt) {
+        b.x = anx;
+        b.y = any;
+      }
+    }
+    
+    playBossMove(this.audioCtx);
+    
+    // Check boss body collision with snake body (boss takes damage)
+    for (let oy = 0; oy < 2; oy++) {
+      for (let ox = 0; ox < 2; ox++) {
+        const tx = b.x + ox;
+        const ty = b.y + oy;
+        for (let s = 1; s < this.snake.length; s++) {
+          if (this.snake[s].x === tx && this.snake[s].y === ty) {
+            b.hp--;
+            b.flashing = true;
+            this.bossFlashTimer = 300;
+            playBossHit(this.audioCtx);
+            this.cameras.main.shake(200, 0.01);
+            if (b.hp <= 0) {
+              this.boss = null;
+              this.baddiesKilled++;
+              this.currentScore += 100;
+              this.cameras.main.flash(200, 255, 200, 0, false, null, null, 0.4);
+              playBaddieDeath(this.audioCtx);
+              if (this.baddies.length === 0 && !this.staircasePlaced) {
+                this.placeStaircase();
+              }
+            }
+            return;
+          }
+        }
+      }
+    }
+    
+    // Check boss collision with snake head (damage)
+    for (let oy = 0; oy < 2; oy++) {
+      for (let ox = 0; ox < 2; ox++) {
+        const tx = b.x + ox;
+        const ty = b.y + oy;
+        if (this.snake[0].x === tx && this.snake[0].y === ty) {
+          if (this.shieldActive) {
+            this.shieldActive = false;
+            this.activePowerup = null;
+            this.cameras.main.flash(150, 68, 136, 255, false, null, null, 0.3);
+            return;
+          }
+          if (this.snake.length <= 1) {
+            this.doGameOver();
+            return;
+          }
+          this.snake.pop();
+          this.cameras.main.shake(150, 0.008);
+          this.cameras.main.flash(100, 255, 0, 0, false, null, null, 0.3);
+          return;
+        }
+      }
     }
   }
 
@@ -1912,6 +2799,81 @@ class GameScene extends Phaser.Scene {
     });
   }
 
+  activatePowerup(type) {
+    // Deactivate any current power-up first
+    this.deactivatePowerup();
+
+    if (type === 'speed') {
+      this.activePowerup = { type: 'speed', remaining: 5000 };
+      this.snakeMoveInterval = this.originalSnakeMoveInterval / 2;
+    } else if (type === 'shield') {
+      this.activePowerup = { type: 'shield', remaining: 30000 };
+      this.shieldActive = true;
+    } else if (type === 'phase') {
+      this.activePowerup = { type: 'phase', remaining: 3000 };
+      this.phaseActive = true;
+    }
+  }
+
+  deactivatePowerup() {
+    if (this.activePowerup) {
+      if (this.activePowerup.type === 'speed') {
+        this.snakeMoveInterval = this.originalSnakeMoveInterval;
+      } else if (this.activePowerup.type === 'shield') {
+        this.shieldActive = false;
+      } else if (this.activePowerup.type === 'phase') {
+        this.phaseActive = false;
+      }
+      this.activePowerup = null;
+    }
+  }
+
+  togglePause() {
+    if (this.paused) {
+      this.resumeGame();
+    } else {
+      this.pauseGame();
+    }
+  }
+
+  pauseGame() {
+    this.paused = true;
+    const cam = this.cameras.main;
+    const cx = cam.width / 2;
+    const cy = cam.height / 2;
+
+    this.pauseOverlay = this.add.rectangle(cx, cy, cam.width + 200, cam.height + 200, 0x000000, 0.7);
+    this.pauseOverlay.setScrollFactor(0).setDepth(200);
+
+    this.pauseTitle = this.add.text(cx, cy - 60, 'PAUSED', {
+      fontFamily: 'monospace', fontSize: '48px', color: '#ffffff'
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(201);
+
+    this.pauseSoundText = this.add.text(cx, cy, `Sound: ${isSoundEnabled() ? 'ON' : 'OFF'}  [Press M to toggle]`, {
+      fontFamily: 'monospace', fontSize: '16px', color: '#aaaaaa'
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(201);
+
+    this.pauseControlsText = this.add.text(cx, cy + 35, 'WASD / Arrow Keys: Move\nSPACE: Fire projectile\nESC / P: Resume', {
+      fontFamily: 'monospace', fontSize: '14px', color: '#666666', align: 'center', lineSpacing: 4
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(201);
+
+    this.pauseResumeText = this.add.text(cx, cy + 90, 'Press ESC or P to resume', {
+      fontFamily: 'monospace', fontSize: '16px', color: '#888888'
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(201);
+
+    // Sound toggle with M key while paused
+    this.keyM = this.input.keyboard.addKey('M');
+  }
+
+  resumeGame() {
+    this.paused = false;
+    if (this.pauseOverlay) { this.pauseOverlay.destroy(); this.pauseOverlay = null; }
+    if (this.pauseTitle) { this.pauseTitle.destroy(); this.pauseTitle = null; }
+    if (this.pauseSoundText) { this.pauseSoundText.destroy(); this.pauseSoundText = null; }
+    if (this.pauseControlsText) { this.pauseControlsText.destroy(); this.pauseControlsText = null; }
+    if (this.pauseResumeText) { this.pauseResumeText.destroy(); this.pauseResumeText = null; }
+  }
+
   renderMap() {
     const cam = this.cameras.main;
     // Calculate visible tile range (with some padding)
@@ -1953,6 +2915,52 @@ class GameScene extends Phaser.Scene {
       if (!entityMap[key]) entityMap[key] = { char: 'B', color: COLOR_BADDIE };
     }
 
+    // Boss (2x2)
+    if (this.boss) {
+      const bossChar = this.boss.flashing ? 'X' : 'D';
+      const bossColor = this.boss.flashing ? '#ffffff' : COLOR_BOSS;
+      for (let oy = 0; oy < 2; oy++) {
+        for (let ox = 0; ox < 2; ox++) {
+          const key = (this.boss.y + oy) * this.mapW + (this.boss.x + ox);
+          entityMap[key] = { char: bossChar, color: bossColor };
+        }
+      }
+    }
+
+    // Lava tiles
+    for (const lava of this.lavaTiles) {
+      const key = lava.y * this.mapW + lava.x;
+      if (!entityMap[key]) entityMap[key] = { char: '~', color: COLOR_LAVA, showExplored: true };
+    }
+
+    // Trap tiles
+    for (const trap of this.trapTiles) {
+      const key = trap.y * this.mapW + trap.x;
+      if (!entityMap[key]) entityMap[key] = { char: '^', color: COLOR_TRAP, showExplored: true };
+    }
+
+    // Teleporters
+    for (const tp of this.teleporters) {
+      const key = tp.y * this.mapW + tp.x;
+      if (!entityMap[key]) entityMap[key] = { char: 'O', color: COLOR_TELEPORTER };
+    }
+
+    // Projectiles
+    for (const p of this.projectiles) {
+      const key = p.y * this.mapW + p.x;
+      if (!entityMap[key]) entityMap[key] = { char: '*', color: '#ffffff' };
+    }
+
+    // Power-ups
+    for (const pu of this.powerups) {
+      const key = pu.y * this.mapW + pu.x;
+      if (!entityMap[key]) {
+        const chars = { speed: '*', shield: '+', phase: '~' };
+        const colors = { speed: COLOR_POWERUP_SPEED, shield: COLOR_POWERUP_SHIELD, phase: COLOR_POWERUP_PHASE };
+        entityMap[key] = { char: chars[pu.type], color: colors[pu.type] };
+      }
+    }
+
     for (let y = startY; y <= endY; y++) {
       for (let x = startX; x <= endX; x++) {
         const vis = this.visibility[y][x];
@@ -1975,7 +2983,11 @@ class GameScene extends Phaser.Scene {
             col = COLOR_FLOOR_VISIBLE;
           }
         } else if (vis === EXPLORED) {
-          if (this.grid[y][x] === WALL) {
+          const entity = entityMap[key];
+          if (entity && entity.showExplored) {
+            ch = entity.char;
+            col = '#553300';
+          } else if (this.grid[y][x] === WALL) {
             ch = '#';
             col = '#444444';
           } else {
@@ -2007,7 +3019,7 @@ const config = {
   height: 600,
   backgroundColor: '#000000',
   parent: document.body,
-  scene: [TitleScene, TransitionScene, GameScene, GameOverScene],
+  scene: [TitleScene, TransitionScene, FlavorTextScene, GameScene, GameOverScene],
   audio: {
     disableWebAudio: false
   },
