@@ -1208,7 +1208,7 @@ class TransitionScene extends Phaser.Scene {
     this._playTransitionSound();
 
     // Subtitles fade
-    this.tweens.add({ targets: [prompt, instruct], alpha: 0, duration: 150 });
+    this.tweens.add({ targets: [prompt], alpha: 0, duration: 150 });
 
     // Title letters scatter outward from @
     for (const { obj, idx } of titleLetters) {
