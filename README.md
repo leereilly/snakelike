@@ -6,6 +6,8 @@
 
 A Snake × Roguelike mashup built with [Phaser 3](https://phaser.io/) and GitHub Copilot Coding Agent. Guide your snake through procedurally generated dungeons, eat rats to grow, avoid baddies, and descend deeper via staircases. Built for the [7DRL Challenge](https://itch.io/jam/7drl-challenge-2026).
 
+![](logo.jpg)
+
 ## Features
 
 - **Procedural dungeons** - BSP-generated maps that grow larger each level
