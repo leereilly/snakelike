@@ -815,9 +815,11 @@ class TitleScene extends Phaser.Scene {
       const lbObjects = [];
       const entries = this.leaderboardEntries || [];
       const sorted = [...entries].sort((a, b) => Number(b.score) - Number(a.score)).slice(0, LEADERBOARD_SIZE);
-      const lbTop = topInner + 88;
+      const numRows = sorted.length || 1;
+      const lbHeight = 25 + numRows * 22;
+      const lbTop = Math.max(topInner + 88, cy - lbHeight / 2);
 
-      const header = this.add.text(cx, lbTop, '── LEADERBOARD ──', {
+      const header = this.add.text(cx, lbTop, '── HIGH SSCORESSS ──', {
         fontFamily: 'monospace', fontSize: '16px', color: '#00ffff'
       }).setOrigin(0.5, 0).setAlpha(0);
       lbObjects.push(header);
@@ -1703,7 +1705,7 @@ class GameOverScene extends Phaser.Scene {
   showLeaderboard(cx, startY, entries) {
     const sorted = [...entries].sort((a, b) => Number(b.score) - Number(a.score)).slice(0, LEADERBOARD_SIZE);
 
-    this.add.text(cx, startY, '── LEADERBOARD ──', {
+    this.add.text(cx, startY, '── HIGH SSCORESSS ──', {
       fontFamily: 'monospace', fontSize: '16px', color: '#00ffff'
     }).setOrigin(0.5);
 
