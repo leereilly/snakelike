@@ -1819,9 +1819,9 @@ class FlavorTextScene extends Phaser.Scene {
       ease: 'Sine.easeIn'
     });
 
-    // Transition to next level after 2 seconds
-    this.time.delayedCall(2000, () => {
-      this.scene.start('TransitionScene', {
+    // Wait for any keypress, then go straight to the next level
+    this.input.keyboard.once('keydown', () => {
+      this.scene.start('GameScene', {
         level: this.nextLevel,
         snakeLength: this.snakeLength,
         baddiesKilled: this.baddiesKilled,
