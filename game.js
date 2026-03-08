@@ -810,37 +810,37 @@ class TitleScene extends Phaser.Scene {
       fontFamily: 'monospace', fontSize: '16px', color: '#888888'
     }).setOrigin(0.5, 1);
 
-    // Build leaderboard objects hidden, fade in after 2s
-    const lbObjects = [];
-    const entries = this.leaderboardEntries || [];
-    const sorted = [...entries].sort((a, b) => Number(b.score) - Number(a.score)).slice(0, LEADERBOARD_SIZE);
-    const lbTop = topInner + 88;
-
-    const header = this.add.text(cx, lbTop, '── LEADERBOARD ──', {
-      fontFamily: 'monospace', fontSize: '16px', color: '#00ffff'
-    }).setOrigin(0.5, 0).setAlpha(0);
-    lbObjects.push(header);
-
-    if (sorted.length === 0) {
-      const noScores = this.add.text(cx, lbTop + 25, 'No scores yet', {
-        fontFamily: 'monospace', fontSize: '14px', color: '#555555'
-      }).setOrigin(0.5, 0).setAlpha(0);
-      lbObjects.push(noScores);
-    } else {
-      for (let i = 0; i < sorted.length; i++) {
-        const entry = sorted[i];
-        const rank = String(i + 1).padStart(2);
-        const displayName = entry.name.replace(/_\d+$/, '');
-        const eName = displayName.substring(0, 12).padEnd(12);
-        const eScore = String(Number(entry.score)).padStart(6);
-        const row = this.add.text(cx, lbTop + 25 + i * 22, `${rank}. ${eName} ${eScore}`, {
-          fontFamily: 'monospace', fontSize: '14px', color: i < 3 ? '#ffff00' : '#aaaaaa'
-        }).setOrigin(0.5, 0).setAlpha(0);
-        lbObjects.push(row);
-      }
-    }
-
+    // Build and fade in leaderboard after 2s (gives fetch time to complete)
     this.switchTimer = this.time.delayedCall(2000, () => {
+      const lbObjects = [];
+      const entries = this.leaderboardEntries || [];
+      const sorted = [...entries].sort((a, b) => Number(b.score) - Number(a.score)).slice(0, LEADERBOARD_SIZE);
+      const lbTop = topInner + 88;
+
+      const header = this.add.text(cx, lbTop, '── LEADERBOARD ──', {
+        fontFamily: 'monospace', fontSize: '16px', color: '#00ffff'
+      }).setOrigin(0.5, 0).setAlpha(0);
+      lbObjects.push(header);
+
+      if (sorted.length === 0) {
+        const noScores = this.add.text(cx, lbTop + 25, 'No scores yet', {
+          fontFamily: 'monospace', fontSize: '14px', color: '#555555'
+        }).setOrigin(0.5, 0).setAlpha(0);
+        lbObjects.push(noScores);
+      } else {
+        for (let i = 0; i < sorted.length; i++) {
+          const entry = sorted[i];
+          const rank = String(i + 1).padStart(2);
+          const displayName = entry.name.replace(/_\d+$/, '');
+          const eName = displayName.substring(0, 12).padEnd(12);
+          const eScore = String(Number(entry.score)).padStart(6);
+          const row = this.add.text(cx, lbTop + 25 + i * 22, `${rank}. ${eName} ${eScore}`, {
+            fontFamily: 'monospace', fontSize: '14px', color: i < 3 ? '#ffff00' : '#aaaaaa'
+          }).setOrigin(0.5, 0).setAlpha(0);
+          lbObjects.push(row);
+        }
+      }
+
       this.tweens.add({ targets: lbObjects, alpha: 1, duration: 600, ease: 'Sine.easeIn' });
     });
 
