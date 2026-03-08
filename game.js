@@ -658,6 +658,7 @@ class TitleScene extends Phaser.Scene {
   clearScreen() {
     this.children.removeAll();
     this.input.keyboard.removeAllListeners();
+    this.input.off('pointerdown');
     if (this.switchTimer) { this.switchTimer.remove(); this.switchTimer = null; }
     this.wallChars = [];
     this.flameChars = [];
@@ -784,10 +785,18 @@ class TitleScene extends Phaser.Scene {
   }
 
   addStartListener() {
-    this.input.keyboard.on('keydown', () => {
+    const startHandler = () => {
+      this.input.keyboard.removeAllListeners();
+      this.input.off('pointerdown');
       if (this.switchTimer) { this.switchTimer.remove(); this.switchTimer = null; }
       this.scene.start('TransitionScene', { level: 1, snakeLength: 1 });
-    });
+    };
+
+    this.input.keyboard.on('keydown', startHandler);
+    this.input.on('pointerdown', startHandler);
+
+    // Ensure canvas has keyboard focus immediately
+    if (this.game.canvas) { this.game.canvas.focus(); }
   }
 
   showTitle() {
@@ -1389,8 +1398,8 @@ class TransitionScene extends Phaser.Scene {
         this.tweens.add({ targets: stairObj, alpha: 1, duration: 300, ease: 'Sine.easeIn' });
       });
 
-      // Auto-walk @ into the staircase
-      this.time.delayedCall(1600, () => {
+      // Auto-walk @ into the staircase after a 2.5s pause
+      this.time.delayedCall(1600 + 2500, () => {
         if (atObj && atObj.active) {
           this.tweens.add({
             targets: atObj,
