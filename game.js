@@ -806,7 +806,7 @@ class TitleScene extends Phaser.Scene {
       fontFamily: 'monospace', fontSize: '14px', color: '#666666'
     }).setOrigin(0.5, 0);
 
-    this.promptText = this.add.text(cx, bottomInner - 10, 'Press any key to start', {
+    this.promptText = this.add.text(cx, bottomInner - 10, 'Press any key to ssstart', {
       fontFamily: 'monospace', fontSize: '16px', color: '#888888'
     }).setOrigin(0.5, 1);
 
@@ -1183,7 +1183,7 @@ class TransitionScene extends Phaser.Scene {
       else titleLetters.push({ obj: t, idx: i });
     }
 
-    const prompt = this.add.text(cx, cy + 40, 'Press any key to start', {
+    const prompt = this.add.text(cx, cy + 40, 'Press any key to ssstart', {
       fontFamily: 'monospace', fontSize: '16px', color: '#888888'
     }).setOrigin(0.5);
 
