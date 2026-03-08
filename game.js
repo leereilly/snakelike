@@ -2304,7 +2304,6 @@ class GameScene extends Phaser.Scene {
           this.baddiesKilled++;
           this.updateScore();
           playBaddieDeath(this.audioCtx);
-          this.cameras.main.flash(100, 255, 255, 255, false, null, null, 0.2);
         }
       }
       // Boss collision
@@ -2316,12 +2315,10 @@ class GameScene extends Phaser.Scene {
               this.boss.flashing = true;
               this.bossFlashTimer = 300;
               playBossHit(this.audioCtx);
-              this.cameras.main.shake(200, 0.01);
               if (this.boss.hp <= 0) {
                 this.boss = null;
                 this.baddiesKilled++;
                 this.currentScore += 100;
-                this.cameras.main.flash(200, 255, 200, 0, false, null, null, 0.4);
                 playBaddieDeath(this.audioCtx);
               }
               break;
@@ -2405,7 +2402,6 @@ class GameScene extends Phaser.Scene {
     // Check lava collision (instant death)
     for (const lava of this.lavaTiles) {
       if (newHead.x === lava.x && newHead.y === lava.y) {
-        this.cameras.main.flash(200, 255, 68, 0, false, null, null, 0.5);
         this.causeOfDeath = 'lava';
         this.doGameOver();
         return;
@@ -2423,7 +2419,6 @@ class GameScene extends Phaser.Scene {
         this.snake.pop();
         this.trapTiles.splice(i, 1);
         playTrapSound(this.audioCtx);
-        this.cameras.main.flash(100, 170, 0, 255, false, null, null, 0.2);
         break;
       }
     }
@@ -2449,7 +2444,6 @@ class GameScene extends Phaser.Scene {
           this.updateScore();
           playBaddieDeath(this.audioCtx);
           // White flash when killing baddie via body
-          this.cameras.main.flash(100, 255, 255, 255, false, null, null, 0.2);
           break;
         }
       }
@@ -2470,12 +2464,10 @@ class GameScene extends Phaser.Scene {
               this.boss.flashing = true;
               this.bossFlashTimer = 300;
               playBossHit(this.audioCtx);
-              this.cameras.main.shake(200, 0.01);
               if (this.boss.hp <= 0) {
                 this.boss = null;
                 this.baddiesKilled++;
                 this.currentScore += 100;
-                this.cameras.main.flash(200, 255, 200, 0, false, null, null, 0.4);
                 playBaddieDeath(this.audioCtx);
                 if (this.baddies.length === 0 && !this.staircasePlaced) {
                   this.placeStaircase();
@@ -2502,7 +2494,6 @@ class GameScene extends Phaser.Scene {
         }
         playEatSound(this.audioCtx);
         // Subtle green pulse when eating rat
-        this.cameras.main.flash(60, 0, 255, 0, false, null, null, 0.08);
         break;
       }
     }
@@ -2514,7 +2505,6 @@ class GameScene extends Phaser.Scene {
           // Shield absorbs the hit
           this.shieldActive = false;
           this.activePowerup = null;
-          this.cameras.main.flash(150, 68, 136, 255, false, null, null, 0.3);
           break;
         }
         const pops = grewThisTick ? 2 : 1;
@@ -2525,8 +2515,6 @@ class GameScene extends Phaser.Scene {
         }
         for (let p = 0; p < pops; p++) this.snake.pop();
         // Screen shake + red flash on damage
-        this.cameras.main.shake(150, 0.008);
-        this.cameras.main.flash(100, 255, 0, 0, false, null, null, 0.3);
         break;
       }
     }
@@ -2539,7 +2527,6 @@ class GameScene extends Phaser.Scene {
             if (this.shieldActive) {
               this.shieldActive = false;
               this.activePowerup = null;
-              this.cameras.main.flash(150, 68, 136, 255, false, null, null, 0.3);
             } else {
               const pops = grewThisTick ? 2 : 1;
               if (this.snake.length <= pops) {
@@ -2548,8 +2535,6 @@ class GameScene extends Phaser.Scene {
                 return;
               }
               for (let p = 0; p < pops; p++) this.snake.pop();
-              this.cameras.main.shake(150, 0.008);
-              this.cameras.main.flash(100, 255, 0, 0, false, null, null, 0.3);
             }
             break;
           }
@@ -2626,7 +2611,6 @@ class GameScene extends Phaser.Scene {
           this.updateScore();
           playBaddieDeath(this.audioCtx);
           // White flash when killing baddie
-          this.cameras.main.flash(100, 255, 255, 255, false, null, null, 0.2);
           break;
         }
       }
@@ -2639,7 +2623,6 @@ class GameScene extends Phaser.Scene {
         if (this.shieldActive) {
           this.shieldActive = false;
           this.activePowerup = null;
-          this.cameras.main.flash(150, 68, 136, 255, false, null, null, 0.3);
           continue;
         }
         if (this.snake.length <= 1) {
@@ -2649,8 +2632,6 @@ class GameScene extends Phaser.Scene {
         }
         this.snake.pop();
         // Screen shake + red flash on damage
-        this.cameras.main.shake(150, 0.008);
-        this.cameras.main.flash(100, 255, 0, 0, false, null, null, 0.3);
       }
     }
 
@@ -2727,12 +2708,10 @@ class GameScene extends Phaser.Scene {
             b.flashing = true;
             this.bossFlashTimer = 300;
             playBossHit(this.audioCtx);
-            this.cameras.main.shake(200, 0.01);
             if (b.hp <= 0) {
               this.boss = null;
               this.baddiesKilled++;
               this.currentScore += 100;
-              this.cameras.main.flash(200, 255, 200, 0, false, null, null, 0.4);
               playBaddieDeath(this.audioCtx);
               if (this.baddies.length === 0 && !this.staircasePlaced) {
                 this.placeStaircase();
@@ -2753,7 +2732,6 @@ class GameScene extends Phaser.Scene {
           if (this.shieldActive) {
             this.shieldActive = false;
             this.activePowerup = null;
-            this.cameras.main.flash(150, 68, 136, 255, false, null, null, 0.3);
             return;
           }
           if (this.snake.length <= 1) {
@@ -2762,8 +2740,6 @@ class GameScene extends Phaser.Scene {
             return;
           }
           this.snake.pop();
-          this.cameras.main.shake(150, 0.008);
-          this.cameras.main.flash(100, 255, 0, 0, false, null, null, 0.3);
           return;
         }
       }
