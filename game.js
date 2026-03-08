@@ -796,11 +796,11 @@ class TitleScene extends Phaser.Scene {
     const cx = this.cameras.main.centerX;
     const cy = this.cameras.main.centerY;
 
-    this.add.text(cx, cy - 40, 'SN@KELIKE', {
+    this.add.text(cx, cy - 70, 'SN@KELIKE', {
       fontFamily: 'monospace', fontSize: '48px', color: '#00ff00'
     }).setOrigin(0.5);
 
-    this.add.text(cx, cy - 5, 'Descend the Endless Dungeon. Consume. Grow. Survive.', {
+    this.add.text(cx, cy - 35, 'Descend the Endless Dungeon. Consume. Grow. Survive.', {
       fontFamily: 'monospace', fontSize: '14px', color: '#666666'
     }).setOrigin(0.5);
 
@@ -821,17 +821,17 @@ class TitleScene extends Phaser.Scene {
     const cx = this.cameras.main.centerX;
     const cy = this.cameras.main.centerY;
 
-    this.add.text(cx, cy - 40, 'SN@KELIKE', {
+    this.add.text(cx, cy - 70, 'SN@KELIKE', {
       fontFamily: 'monospace', fontSize: '48px', color: '#00ff00'
     }).setOrigin(0.5);
 
-    this.add.text(cx, cy - 5, 'Descend the Endless Dungeon. Consume. Grow. Survive.', {
+    this.add.text(cx, cy - 35, 'Descend the Endless Dungeon. Consume. Grow. Survive.', {
       fontFamily: 'monospace', fontSize: '14px', color: '#666666'
     }).setOrigin(0.5);
 
     const entries = this.leaderboardEntries || [];
     const sorted = [...entries].sort((a, b) => Number(b.score) - Number(a.score)).slice(0, LEADERBOARD_SIZE);
-    const startY = cy - 5;
+    const startY = cy - 25;
 
     this.add.text(cx, startY, '── LEADERBOARD ──', {
       fontFamily: 'monospace', fontSize: '16px', color: '#00ffff'
@@ -1187,7 +1187,7 @@ class TransitionScene extends Phaser.Scene {
     meas.destroy();
 
     const titleX0 = cx - titleTotalW / 2;
-    const titleY = cy - 40;
+    const titleY = cy - 70;
     const atIdx = titleStr.indexOf('@');
     const titleLetters = [];
     let atObj = null;
