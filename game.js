@@ -803,8 +803,8 @@ class TitleScene extends Phaser.Scene {
       fontFamily: 'monospace', fontSize: '48px', color: '#00ff00'
     }).setOrigin(0.5, 0);
 
-    this.add.text(cx, topInner + 58, 'Descend the Endless Dungeon. Consume. Grow. Survive.', {
-      fontFamily: 'monospace', fontSize: '14px', color: '#666666'
+    this.add.text(cx, topInner + 58, 'Descend the Endless Dungeon.\nConsume. Grow. Sssurvive.', {
+      fontFamily: 'monospace', fontSize: '14px', color: '#666666', align: 'center'
     }).setOrigin(0.5, 0);
 
     this.promptText = this.add.text(cx, bottomInner - 10, 'Press any key to ssstart', {
