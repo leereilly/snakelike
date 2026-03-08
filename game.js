@@ -2823,7 +2823,7 @@ class GameScene extends Phaser.Scene {
 
     if (type === 'speed') {
       this.activePowerup = { type: 'speed', remaining: 5000 };
-      this.snakeMoveInterval = this.originalSnakeMoveInterval / 2;
+      this.snakeMoveInterval = this.originalSnakeMoveInterval / 1.5;
     } else if (type === 'shield') {
       this.activePowerup = { type: 'shield', remaining: 30000 };
       this.shieldActive = true;
