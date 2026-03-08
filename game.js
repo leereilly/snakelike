@@ -539,8 +539,8 @@ function generateDungeon(mapW, mapH, level) {
     return null;
   }
 
-  // Lava: 2-4 per level, placed in corridors
-  const numLava = 2 + Math.floor(Math.random() * 3);
+  // Lava: 1-2 per level, placed in corridors
+  const numLava = 1 + Math.floor(Math.random() * 2);
   for (let i = 0; i < numLava; i++) {
     const pos = randomCorridorFloor();
     if (pos) {
@@ -549,8 +549,8 @@ function generateDungeon(mapW, mapH, level) {
     }
   }
 
-  // Traps: 3-6 per level, spread across different rooms
-  const numTraps = 3 + Math.floor(Math.random() * 4);
+  // Traps: 1-3 per level, spread across different rooms
+  const numTraps = 1 + Math.floor(Math.random() * 3);
   for (let i = 0; i < numTraps; i++) {
     const room = rooms[Math.floor(Math.random() * rooms.length)];
     const pos = randomFloorInRoom(room);
@@ -561,6 +561,50 @@ function generateDungeon(mapW, mapH, level) {
   }
 
   return { grid, rooms, lavaTiles, trapTiles };
+}
+
+// Ensure the spawn tile is safe and at least one cardinal neighbor is walkable
+function clearSpawnArea(sx, sy, grid, mapW, mapH, baddies, lavaTiles, trapTiles) {
+  const dirs = [{x:0,y:-1},{x:0,y:1},{x:-1,y:0},{x:1,y:0}];
+
+  function removeTileFrom(arr, x, y) {
+    for (let i = arr.length - 1; i >= 0; i--) {
+      if (arr[i].x === x && arr[i].y === y) arr.splice(i, 1);
+    }
+  }
+
+  function isHazard(x, y) {
+    return lavaTiles.some(t => t.x === x && t.y === y) ||
+           trapTiles.some(t => t.x === x && t.y === y);
+  }
+
+  function isBaddie(x, y) {
+    return baddies.some(b => b.x === x && b.y === y);
+  }
+
+  // Clear spawn tile itself
+  removeTileFrom(lavaTiles, sx, sy);
+  removeTileFrom(trapTiles, sx, sy);
+  removeTileFrom(baddies, sx, sy);
+
+  // Ensure at least one cardinal neighbor is safe
+  const hasSafeExit = dirs.some(d => {
+    const nx = sx + d.x, ny = sy + d.y;
+    return nx > 0 && nx < mapW - 1 && ny > 0 && ny < mapH - 1 &&
+           grid[ny][nx] === FLOOR && !isHazard(nx, ny) && !isBaddie(nx, ny);
+  });
+
+  if (!hasSafeExit) {
+    for (const d of dirs) {
+      const nx = sx + d.x, ny = sy + d.y;
+      if (nx <= 0 || nx >= mapW - 1 || ny <= 0 || ny >= mapH - 1) continue;
+      if (grid[ny][nx] !== FLOOR) continue;
+      removeTileFrom(lavaTiles, nx, ny);
+      removeTileFrom(trapTiles, nx, ny);
+      removeTileFrom(baddies, nx, ny);
+      return; // one safe exit is enough
+    }
+  }
 }
 
 // ============================================================
@@ -1049,13 +1093,17 @@ class TransitionScene extends Phaser.Scene {
       });
     }
 
+    const preLava = dungeon.lavaTiles || [];
+    const preTraps = dungeon.trapTiles || [];
+    clearSpawnArea(snakeX, snakeY, grid, mapW, mapH, baddiesArr, preLava, preTraps);
+
     this.dungeonData = {
       grid, rooms, mapW, mapH,
       snakeX, snakeY,
       rats: ratsArr,
       baddies: baddiesArr,
-      lavaTiles: dungeon.lavaTiles || [],
-      trapTiles: dungeon.trapTiles || []
+      lavaTiles: preLava,
+      trapTiles: preTraps
     };
 
     // Find a floor tile adjacent to the snake for the intro staircase
@@ -1398,8 +1446,8 @@ class TransitionScene extends Phaser.Scene {
         this.tweens.add({ targets: stairObj, alpha: 1, duration: 300, ease: 'Sine.easeIn' });
       });
 
-      // Auto-walk @ into the staircase after a 2.5s pause
-      this.time.delayedCall(1600 + 2500, () => {
+      // Auto-walk @ into the staircase after a 1.25s pause
+      this.time.delayedCall(1600 + 1250, () => {
         if (atObj && atObj.active) {
           this.tweens.add({
             targets: atObj,
@@ -1621,21 +1669,50 @@ class GameOverScene extends Phaser.Scene {
     const startY = 125;
     const lineH = 28;
 
+    this._statsRevealed = false;
+    this._statTimers = [];
+    this._statTexts = [];
+
     statLines.forEach((stat, i) => {
-      this.time.delayedCall(400 + i * 350, () => {
+      const timer = this.time.delayedCall(400 + i * 350, () => {
+        const pb = newBests[stat.key] ? '  ★ NEW BEST!' : '';
+        const color = newBests[stat.key] ? '#ffff00' : '#cccccc';
+        const t = this.add.text(cx, startY + i * lineH, `${stat.label}: ${stat.value}${pb}`, {
+          fontFamily: 'monospace', fontSize: '16px', color: color
+        }).setOrigin(0.5);
+        this._statTexts.push(t);
+      });
+      this._statTimers.push(timer);
+    });
+
+    // After all stats shown, load leaderboard
+    const leaderboardDelay = 400 + statLines.length * 350 + 500;
+    const lbTimer = this.time.delayedCall(leaderboardDelay, () => {
+      this._statsRevealed = true;
+      this.showLeaderboardSection(cx, startY + statLines.length * lineH + 15);
+    });
+    this._statTimers.push(lbTimer);
+
+    // Press any key to reveal all stats at once
+    this._skipHandler = () => {
+      if (this._statsRevealed) return;
+      this._statsRevealed = true;
+      // Cancel pending timers
+      this._statTimers.forEach(t => { if (t && t.remove) t.remove(); });
+      this._statTimers = [];
+      // Show any stats not yet displayed
+      const shown = this._statTexts.length;
+      for (let i = shown; i < statLines.length; i++) {
+        const stat = statLines[i];
         const pb = newBests[stat.key] ? '  ★ NEW BEST!' : '';
         const color = newBests[stat.key] ? '#ffff00' : '#cccccc';
         this.add.text(cx, startY + i * lineH, `${stat.label}: ${stat.value}${pb}`, {
           fontFamily: 'monospace', fontSize: '16px', color: color
         }).setOrigin(0.5);
-      });
-    });
-
-    // After all stats shown, load leaderboard
-    const leaderboardDelay = 400 + statLines.length * 350 + 500;
-    this.time.delayedCall(leaderboardDelay, () => {
+      }
       this.showLeaderboardSection(cx, startY + statLines.length * lineH + 15);
-    });
+    };
+    this.input.keyboard.on('keydown', this._skipHandler);
   }
 
   showLeaderboardSection(cx, topY) {
@@ -1744,8 +1821,20 @@ class GameOverScene extends Phaser.Scene {
       fontFamily: 'monospace', fontSize: '18px', color: '#888888'
     }).setOrigin(0.5);
 
+    // Remove skip-stats handler so it doesn't interfere
+    if (this._skipHandler) {
+      this.input.keyboard.off('keydown', this._skipHandler);
+      this._skipHandler = null;
+    }
+
     this.input.keyboard.on('keydown', () => {
-      this.scene.start('TitleScene');
+      this.scene.start('GameScene', {
+        level: 1,
+        snakeLength: 1,
+        baddiesKilled: 0,
+        maxSnakeLength: 1,
+        score: 0
+      });
     });
   }
 }
@@ -1973,6 +2062,11 @@ class GameScene extends Phaser.Scene {
     }
 
     this.preGenerated = null;
+
+    // Clear hazards/enemies from spawn area
+    const spawnHead = this.snake[0];
+    clearSpawnArea(spawnHead.x, spawnHead.y, this.grid, this.mapW, this.mapH,
+                   this.baddies, this.lavaTiles, this.trapTiles);
 
     // Place power-ups
     this.powerups = [];
@@ -2270,8 +2364,7 @@ class GameScene extends Phaser.Scene {
         continue;
       }
 
-      // Baddie collision
-      let hit = false;
+      // Baddie collision — projectile pierces through all enemies
       for (let j = this.baddies.length - 1; j >= 0; j--) {
         if (this.baddies[j].x === p.x && this.baddies[j].y === p.y) {
           this.baddies.splice(j, 1);
@@ -2279,12 +2372,10 @@ class GameScene extends Phaser.Scene {
           this.updateScore();
           playBaddieDeath(this.audioCtx);
           this.cameras.main.flash(100, 255, 255, 255, false, null, null, 0.2);
-          hit = true;
-          break;
         }
       }
       // Boss collision
-      if (!hit && this.boss) {
+      if (this.boss) {
         for (let oy = 0; oy < 2; oy++) {
           for (let ox = 0; ox < 2; ox++) {
             if (p.x === this.boss.x + ox && p.y === this.boss.y + oy) {
@@ -2299,22 +2390,15 @@ class GameScene extends Phaser.Scene {
                 this.currentScore += 100;
                 this.cameras.main.flash(200, 255, 200, 0, false, null, null, 0.4);
                 playBaddieDeath(this.audioCtx);
-                if (this.baddies.length === 0 && !this.staircasePlaced) {
-                  this.placeStaircase();
-                }
               }
-              hit = true;
               break;
             }
           }
-          if (hit) break;
+          if (!this.boss) break;
         }
       }
-      if (hit) {
-        this.projectiles.splice(i, 1);
-        if (this.baddies.length === 0 && !this.boss && !this.staircasePlaced) {
-          this.placeStaircase();
-        }
+      if (this.baddies.length === 0 && !this.boss && !this.staircasePlaced) {
+        this.placeStaircase();
       }
     }
   }
