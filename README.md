@@ -4,11 +4,7 @@
      <img alt="GitHub contribution graph snake game" src="snakelike-light.svg">
    </picture>
 
-A Snake × Roguelike mashup built with [Phaser 3](https://phaser.io/) and GitHub Copilot Coding Agent. Guide your snake through procedurally generated dungeons, eat rats to grow, avoid baddies, and descend deeper via staircases. Built for the [7DRL Challenge](https://itch.io/jam/7drl-challenge-2026).
-
 ![](logo.jpg)
-
-## Lore 🐍 🏰
 
 Deep beneath the surface lies a dark dungeon full of rats, monsters, and forgotten treasure. A small hungry snake begins its journey there, slithering through tight stone halls and hunting rats to survive. Each rat it eats makes it grow longer and stronger, letting it face bigger enemies that guard the deeper rooms. The farther the snake travels, the more dangerous the dungeon becomes, with strange creatures and powerful bosses waiting below. What starts as a simple hunt for food slowly turns into a descent through the entire dungeon as the growing serpent fights, coils, and devours its way toward the darkest depths.
 
@@ -110,10 +106,6 @@ Every action matters: kill baddies, eat rats to grow, and push deeper into the d
 ## Getting Started
 
 No build step required. Open `index.html` in a browser or serve it locally:
-
-```sh
-npx serve .
-```
 
 ## License
 
