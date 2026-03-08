@@ -1570,6 +1570,8 @@ class GameOverScene extends Phaser.Scene {
     this.causeOfDeath = data.causeOfDeath || 'unknown';
     this.nameEntry = '';
     this.inputActive = false;
+    this._isTurnBased = this.game.registry.get('turnBasedMode') || false;
+    this._konamiIndex = 0;
 
     const cx = this.cameras.main.centerX;
     const cy = this.cameras.main.centerY;
@@ -1652,7 +1654,16 @@ class GameOverScene extends Phaser.Scene {
     this._statTimers.push(lbTimer);
 
     // Press any key to reveal all stats at once
-    this._skipHandler = () => {
+    this._skipHandler = (event) => {
+      // In turn-based mode, track Konami input and consume matching keys
+      if (this._isTurnBased) {
+        const expected = KONAMI_SEQUENCE[this._konamiIndex];
+        if (event.key === expected) {
+          this._konamiIndex++;
+          return;
+        }
+        this._konamiIndex = 0;
+      }
       if (this._statsRevealed) return;
       this._statsRevealed = true;
       // Cancel pending timers
@@ -1783,7 +1794,7 @@ class GameOverScene extends Phaser.Scene {
   addRestartListener() {
     const cx = this.cameras.main.centerX;
     const bottom = this.cameras.main.height - 30;
-    this.add.text(cx, bottom, 'Press any key to restart', {
+    const restartPrompt = this.add.text(cx, bottom, 'Press any key to restart', {
       fontFamily: 'monospace', fontSize: '18px', color: '#888888'
     }).setOrigin(0.5);
 
@@ -1793,15 +1804,41 @@ class GameOverScene extends Phaser.Scene {
       this._skipHandler = null;
     }
 
-    this.input.keyboard.on('keydown', () => {
+    const isTurnBased = this._isTurnBased;
+
+    const restartHandler = (event) => {
+      if (isTurnBased) {
+        const expected = KONAMI_SEQUENCE[this._konamiIndex];
+        if (event.key === expected) {
+          this._konamiIndex++;
+          if (this._konamiIndex >= KONAMI_SEQUENCE.length) {
+            // Konami code completed in turn-based mode — switch to fast-paced
+            this.game.registry.set('turnBasedMode', false);
+            this.game.registry.set('fastPacedMode', true);
+            restartPrompt.setText('FAST-PACED MODE ACTIVATED');
+            restartPrompt.setColor('#ff00ff');
+            this.input.keyboard.off('keydown', restartHandler);
+            this.time.delayedCall(200, () => {
+              this.input.keyboard.on('keydown', () => {
+                this.scene.start('GameScene', {
+                  level: 1, snakeLength: 1, baddiesKilled: 0,
+                  maxSnakeLength: 1, score: 0
+                });
+              });
+            });
+            return;
+          }
+          return;
+        }
+        this._konamiIndex = 0;
+      }
       this.scene.start('GameScene', {
-        level: 1,
-        snakeLength: 1,
-        baddiesKilled: 0,
-        maxSnakeLength: 1,
-        score: 0
+        level: 1, snakeLength: 1, baddiesKilled: 0,
+        maxSnakeLength: 1, score: 0
       });
-    });
+    };
+
+    this.input.keyboard.on('keydown', restartHandler);
   }
 }
 
@@ -1882,6 +1919,7 @@ class GameScene extends Phaser.Scene {
     this.fromTransition = !!data.preGenerated;
     this.initialDirection = data.initialDirection || null;
     this.turnBasedMode = this.game.registry.get('turnBasedMode') || false;
+    this.fastPacedMode = this.game.registry.get('fastPacedMode') || false;
   }
 
   updateScore() {
@@ -2231,7 +2269,7 @@ class GameScene extends Phaser.Scene {
     const aliveRats = this.rats.length;
     const aliveBaddies = this.baddies.length;
     const canFire = this.snake.length >= 3 && this.direction;
-    let hudStr = `Level: ${this.level}  Rats: ${aliveRats}  Baddies: ${aliveBaddies}  Length: ${this.snake.length}  ${canFire ? '[SPACE:Fire]' : ''}${this.turnBasedMode ? '  [TURN-BASED]' : ''}`;
+    let hudStr = `Level: ${this.level}  Rats: ${aliveRats}  Baddies: ${aliveBaddies}  Length: ${this.snake.length}  ${canFire ? '[SPACE:Fire]' : ''}${this.turnBasedMode ? '  [TURN-BASED]' : ''}${this.fastPacedMode ? '  [FAST-PACED]' : ''}`;
     if (this.boss) {
       hudStr += `  Boss: ${'#'.repeat(this.boss.hp)}${'-'.repeat(this.boss.maxHp - this.boss.hp)}`;
     }
