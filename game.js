@@ -794,6 +794,7 @@ class TitleScene extends Phaser.Scene {
     this.clearScreen();
     this.createBorder();
     const cx = this.cameras.main.centerX;
+    const cy = this.cameras.main.centerY;
 
     const topInner = 68;
     const bottomInner = this.cameras.main.height - 36;
