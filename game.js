@@ -796,17 +796,20 @@ class TitleScene extends Phaser.Scene {
     const cx = this.cameras.main.centerX;
     const cy = this.cameras.main.centerY;
 
-    this.add.text(cx, cy - 70, 'SN@KELIKE', {
+    const topInner = 68;
+    const bottomInner = this.cameras.main.height - 36;
+
+    this.add.text(cx, topInner + 10, 'SN@KELIKE', {
       fontFamily: 'monospace', fontSize: '48px', color: '#00ff00'
-    }).setOrigin(0.5);
+    }).setOrigin(0.5, 0);
 
-    this.add.text(cx, cy - 35, 'Descend the Endless Dungeon. Consume. Grow. Survive.', {
+    this.add.text(cx, topInner + 65, 'Descend the Endless Dungeon. Consume. Grow. Survive.', {
       fontFamily: 'monospace', fontSize: '14px', color: '#666666'
-    }).setOrigin(0.5);
+    }).setOrigin(0.5, 0);
 
-    this.promptText = this.add.text(cx, cy + 40, 'Press any key to start', {
+    this.promptText = this.add.text(cx, bottomInner - 25, 'Press any key to start', {
       fontFamily: 'monospace', fontSize: '16px', color: '#888888'
-    }).setOrigin(0.5);
+    }).setOrigin(0.5, 1);
 
     this.addStartListener();
 
@@ -821,26 +824,29 @@ class TitleScene extends Phaser.Scene {
     const cx = this.cameras.main.centerX;
     const cy = this.cameras.main.centerY;
 
-    this.add.text(cx, cy - 70, 'SN@KELIKE', {
-      fontFamily: 'monospace', fontSize: '48px', color: '#00ff00'
-    }).setOrigin(0.5);
+    const topInner = 68;
+    const bottomInner = this.cameras.main.height - 36;
 
-    this.add.text(cx, cy - 35, 'Descend the Endless Dungeon. Consume. Grow. Survive.', {
+    this.add.text(cx, topInner + 10, 'SN@KELIKE', {
+      fontFamily: 'monospace', fontSize: '48px', color: '#00ff00'
+    }).setOrigin(0.5, 0);
+
+    this.add.text(cx, topInner + 65, 'Descend the Endless Dungeon. Consume. Grow. Survive.', {
       fontFamily: 'monospace', fontSize: '14px', color: '#666666'
-    }).setOrigin(0.5);
+    }).setOrigin(0.5, 0);
 
     const entries = this.leaderboardEntries || [];
     const sorted = [...entries].sort((a, b) => Number(b.score) - Number(a.score)).slice(0, LEADERBOARD_SIZE);
-    const startY = cy - 25;
+    const lbTop = topInner + 95;
 
-    this.add.text(cx, startY, '── LEADERBOARD ──', {
+    this.add.text(cx, lbTop, '── LEADERBOARD ──', {
       fontFamily: 'monospace', fontSize: '16px', color: '#00ffff'
-    }).setOrigin(0.5);
+    }).setOrigin(0.5, 0);
 
     if (sorted.length === 0) {
-      this.add.text(cx, startY + 25, 'No scores yet', {
+      this.add.text(cx, lbTop + 25, 'No scores yet', {
         fontFamily: 'monospace', fontSize: '14px', color: '#555555'
-      }).setOrigin(0.5);
+      }).setOrigin(0.5, 0);
     } else {
       for (let i = 0; i < sorted.length; i++) {
         const entry = sorted[i];
@@ -848,16 +854,15 @@ class TitleScene extends Phaser.Scene {
         const displayName = entry.name.replace(/_\d+$/, '');
         const eName = displayName.substring(0, 12).padEnd(12);
         const eScore = String(Number(entry.score)).padStart(6);
-        this.add.text(cx, startY + 25 + i * 22, `${rank}. ${eName} ${eScore}`, {
+        this.add.text(cx, lbTop + 25 + i * 22, `${rank}. ${eName} ${eScore}`, {
           fontFamily: 'monospace', fontSize: '14px', color: i < 3 ? '#ffff00' : '#aaaaaa'
-        }).setOrigin(0.5);
+        }).setOrigin(0.5, 0);
       }
     }
 
-    const bottom = this.cameras.main.height - 30;
-    this.promptText = this.add.text(cx, bottom, 'Press any key to start', {
+    this.promptText = this.add.text(cx, bottomInner - 25, 'Press any key to start', {
       fontFamily: 'monospace', fontSize: '16px', color: '#888888'
-    }).setOrigin(0.5);
+    }).setOrigin(0.5, 1);
 
     this.addStartListener();
 
@@ -1187,7 +1192,7 @@ class TransitionScene extends Phaser.Scene {
     meas.destroy();
 
     const titleX0 = cx - titleTotalW / 2;
-    const titleY = cy - 70;
+    const titleY = 78;
     const atIdx = titleStr.indexOf('@');
     const titleLetters = [];
     let atObj = null;
