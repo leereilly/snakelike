@@ -43,6 +43,13 @@ const POINTS_PER_LEVEL = 100;
 const POINTS_PER_KILL = 15;
 const POINTS_PER_MAX_LENGTH = 5;
 
+// Konami code sequence (native KeyboardEvent.key values)
+const KONAMI_SEQUENCE = [
+  'ArrowUp', 'ArrowUp', 'ArrowDown', 'ArrowDown',
+  'ArrowLeft', 'ArrowRight', 'ArrowLeft', 'ArrowRight',
+  'b', 'a'
+];
+
 // Directions
 const DIR = {
   UP: { x: 0, y: -1 },
@@ -827,15 +834,41 @@ class TitleScene extends Phaser.Scene {
   }
 
   addStartListener() {
-    const startHandler = () => {
+    this.konamiIndex = 0;
+
+    const startGame = () => {
       this.input.keyboard.removeAllListeners();
       this.input.off('pointerdown');
       if (this.switchTimer) { this.switchTimer.remove(); this.switchTimer = null; }
       this.scene.start('TransitionScene', { level: 1, snakeLength: 1 });
     };
 
-    this.input.keyboard.on('keydown', startHandler);
-    this.input.on('pointerdown', startHandler);
+    const konamiHandler = (event) => {
+      const expected = KONAMI_SEQUENCE[this.konamiIndex];
+      if (event.key === expected) {
+        this.konamiIndex++;
+        if (this.konamiIndex >= KONAMI_SEQUENCE.length) {
+          // Konami code completed — activate turn-based mode
+          this.game.registry.set('turnBasedMode', true);
+          if (this.promptText) {
+            this.promptText.setText('TURN-BASED MODE ACTIVATED');
+            this.promptText.setColor('#00ffff');
+            this.promptText.setAlpha(1);
+          }
+          this.input.keyboard.removeAllListeners();
+          // Wait for next keypress to start the game
+          this.time.delayedCall(200, () => {
+            this.input.keyboard.on('keydown', startGame);
+          });
+        }
+      } else {
+        // Wrong key — start normally
+        startGame();
+      }
+    };
+
+    this.input.keyboard.on('keydown', konamiHandler);
+    this.input.on('pointerdown', startGame);
 
     // Ensure canvas has keyboard focus immediately
     if (this.game.canvas) { this.game.canvas.focus(); }
@@ -1848,6 +1881,7 @@ class GameScene extends Phaser.Scene {
     this.preGenerated = data.preGenerated || null;
     this.fromTransition = !!data.preGenerated;
     this.initialDirection = data.initialDirection || null;
+    this.turnBasedMode = this.game.registry.get('turnBasedMode') || false;
   }
 
   updateScore() {
@@ -2102,7 +2136,12 @@ class GameScene extends Phaser.Scene {
       this.direction = this.initialDirection;
       this.nextDirection = this.initialDirection;
       this.moving = true;
-      this.snakeMoveTimer = this.snakeMoveInterval;
+      if (this.turnBasedMode) {
+        // In turn-based mode, execute one move for the captured direction
+        this.doTurn();
+      } else {
+        this.snakeMoveTimer = this.snakeMoveInterval;
+      }
     }
   }
 
@@ -2157,8 +2196,8 @@ class GameScene extends Phaser.Scene {
     // Read input
     this.handleInput();
 
-    // Snake movement timer
-    if (this.moving) {
+    // Snake movement timer (skip in turn-based mode — handled in handleInput)
+    if (this.moving && !this.turnBasedMode) {
       this.snakeMoveTimer += delta;
       if (this.snakeMoveTimer >= this.snakeMoveInterval) {
         this.snakeMoveTimer -= this.snakeMoveInterval;
@@ -2167,8 +2206,8 @@ class GameScene extends Phaser.Scene {
       }
     }
 
-    // Baddie movement timer (only after player starts moving)
-    if (this.moving) {
+    // Baddie movement timer (skip in turn-based mode — handled in doTurn)
+    if (this.moving && !this.turnBasedMode) {
       this.baddieMoveTimer += delta;
       if (this.baddieMoveTimer >= this.baddieMoveInterval) {
         this.baddieMoveTimer -= this.baddieMoveInterval;
@@ -2178,8 +2217,8 @@ class GameScene extends Phaser.Scene {
       }
     }
 
-    // Projectile movement timer
-    if (this.projectiles.length > 0) {
+    // Projectile movement timer (skip in turn-based mode — handled in doTurn)
+    if (this.projectiles.length > 0 && !this.turnBasedMode) {
       this.projectileMoveTimer += delta;
       if (this.projectileMoveTimer >= this.projectileMoveInterval) {
         this.projectileMoveTimer -= this.projectileMoveInterval;
@@ -2192,7 +2231,7 @@ class GameScene extends Phaser.Scene {
     const aliveRats = this.rats.length;
     const aliveBaddies = this.baddies.length;
     const canFire = this.snake.length >= 3 && this.direction;
-    let hudStr = `Level: ${this.level}  Rats: ${aliveRats}  Baddies: ${aliveBaddies}  Length: ${this.snake.length}  ${canFire ? '[SPACE:Fire]' : ''}`;
+    let hudStr = `Level: ${this.level}  Rats: ${aliveRats}  Baddies: ${aliveBaddies}  Length: ${this.snake.length}  ${canFire ? '[SPACE:Fire]' : ''}${this.turnBasedMode ? '  [TURN-BASED]' : ''}`;
     if (this.boss) {
       hudStr += `  Boss: ${'#'.repeat(this.boss.hp)}${'-'.repeat(this.boss.maxHp - this.boss.hp)}`;
     }
@@ -2243,10 +2282,18 @@ class GameScene extends Phaser.Scene {
   handleInput() {
     let newDir = null;
 
-    if (this.cursors.up.isDown || this.keyW.isDown) newDir = DIR.UP;
-    else if (this.cursors.down.isDown || this.keyS.isDown) newDir = DIR.DOWN;
-    else if (this.cursors.left.isDown || this.keyA.isDown) newDir = DIR.LEFT;
-    else if (this.cursors.right.isDown || this.keyD.isDown) newDir = DIR.RIGHT;
+    if (this.turnBasedMode) {
+      // Turn-based: only respond to JustDown (one press = one move)
+      if (Phaser.Input.Keyboard.JustDown(this.cursors.up) || Phaser.Input.Keyboard.JustDown(this.keyW)) newDir = DIR.UP;
+      else if (Phaser.Input.Keyboard.JustDown(this.cursors.down) || Phaser.Input.Keyboard.JustDown(this.keyS)) newDir = DIR.DOWN;
+      else if (Phaser.Input.Keyboard.JustDown(this.cursors.left) || Phaser.Input.Keyboard.JustDown(this.keyA)) newDir = DIR.LEFT;
+      else if (Phaser.Input.Keyboard.JustDown(this.cursors.right) || Phaser.Input.Keyboard.JustDown(this.keyD)) newDir = DIR.RIGHT;
+    } else {
+      if (this.cursors.up.isDown || this.keyW.isDown) newDir = DIR.UP;
+      else if (this.cursors.down.isDown || this.keyS.isDown) newDir = DIR.DOWN;
+      else if (this.cursors.left.isDown || this.keyA.isDown) newDir = DIR.LEFT;
+      else if (this.cursors.right.isDown || this.keyD.isDown) newDir = DIR.RIGHT;
+    }
 
     if (newDir) {
       if (!this.moving) {
@@ -2254,7 +2301,18 @@ class GameScene extends Phaser.Scene {
         this.direction = newDir;
         this.nextDirection = newDir;
         this.moving = true;
-        this.snakeMoveTimer = this.snakeMoveInterval; // move immediately
+        if (this.turnBasedMode) {
+          // Immediately execute one turn
+          this.doTurn();
+        } else {
+          this.snakeMoveTimer = this.snakeMoveInterval; // move immediately
+        }
+      } else if (this.turnBasedMode) {
+        // Turn-based: each keypress = one move
+        if (!this.direction || !dirsEqual(newDir, oppositeDir(this.direction))) {
+          this.nextDirection = newDir;
+          this.doTurn();
+        }
       } else {
         // Can't reverse
         if (!this.direction || !dirsEqual(newDir, oppositeDir(this.direction))) {
@@ -2266,6 +2324,16 @@ class GameScene extends Phaser.Scene {
     // Fire projectile with SPACE
     if (Phaser.Input.Keyboard.JustDown(this.keySPACE) && this.direction && this.snake.length >= 3) {
       this.fireProjectile();
+    }
+  }
+
+  doTurn() {
+    this.moveSnake();
+    if (!this.gameOver) {
+      this.moveBaddies();
+      this.moveBoss();
+      this.moveProjectiles();
+      this._entityMapDirty = true;
     }
   }
 
