@@ -799,22 +799,22 @@ class TitleScene extends Phaser.Scene {
     const topInner = 68;
     const bottomInner = this.cameras.main.height - 36;
 
-    this.add.text(cx, topInner + 10, 'SN@KELIKE', {
+    this.add.text(cx, topInner + 6, 'SN@KELIKE', {
       fontFamily: 'monospace', fontSize: '48px', color: '#00ff00'
     }).setOrigin(0.5, 0);
 
-    this.add.text(cx, topInner + 65, 'Descend the Endless Dungeon. Consume. Grow. Survive.', {
+    this.add.text(cx, topInner + 58, 'Descend the Endless Dungeon. Consume. Grow. Survive.', {
       fontFamily: 'monospace', fontSize: '14px', color: '#666666'
     }).setOrigin(0.5, 0);
 
-    this.promptText = this.add.text(cx, bottomInner - 25, 'Press any key to start', {
+    this.promptText = this.add.text(cx, bottomInner - 10, 'Press any key to start', {
       fontFamily: 'monospace', fontSize: '16px', color: '#888888'
     }).setOrigin(0.5, 1);
 
     this.addStartListener();
 
-    this.switchTimer = this.time.delayedCall(3000, () => {
-      this.showTitleLeaderboard();
+    this.switchTimer = this.time.delayedCall(8000, () => {
+      this.showTitle();
     });
   }
 
@@ -827,17 +827,17 @@ class TitleScene extends Phaser.Scene {
     const topInner = 68;
     const bottomInner = this.cameras.main.height - 36;
 
-    this.add.text(cx, topInner + 10, 'SN@KELIKE', {
+    this.add.text(cx, topInner + 6, 'SN@KELIKE', {
       fontFamily: 'monospace', fontSize: '48px', color: '#00ff00'
     }).setOrigin(0.5, 0);
 
-    this.add.text(cx, topInner + 65, 'Descend the Endless Dungeon. Consume. Grow. Survive.', {
+    this.add.text(cx, topInner + 58, 'Descend the Endless Dungeon. Consume. Grow. Survive.', {
       fontFamily: 'monospace', fontSize: '14px', color: '#666666'
     }).setOrigin(0.5, 0);
 
     const entries = this.leaderboardEntries || [];
     const sorted = [...entries].sort((a, b) => Number(b.score) - Number(a.score)).slice(0, LEADERBOARD_SIZE);
-    const lbTop = topInner + 95;
+    const lbTop = topInner + 88;
 
     this.add.text(cx, lbTop, '── LEADERBOARD ──', {
       fontFamily: 'monospace', fontSize: '16px', color: '#00ffff'
@@ -860,15 +860,11 @@ class TitleScene extends Phaser.Scene {
       }
     }
 
-    this.promptText = this.add.text(cx, bottomInner - 25, 'Press any key to start', {
+    this.promptText = this.add.text(cx, bottomInner - 10, 'Press any key to start', {
       fontFamily: 'monospace', fontSize: '16px', color: '#888888'
     }).setOrigin(0.5, 1);
 
     this.addStartListener();
-
-    this.switchTimer = this.time.delayedCall(8000, () => {
-      this.showTitle();
-    });
   }
 
   showTutorial() {
