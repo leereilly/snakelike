@@ -691,12 +691,6 @@ class TitleScene extends Phaser.Scene {
     this.handleChars = [];
     this.showTitle();
 
-    // Show tutorial on first play
-    try {
-      if (!localStorage.getItem('snakelike_tutorial_seen')) {
-        this.showTutorial();
-      }
-    } catch (e) {}
   }
 
   clearScreen() {
@@ -901,79 +895,6 @@ class TitleScene extends Phaser.Scene {
     });
 
     this.addStartListener();
-  }
-
-  showTutorial() {
-    // Remove any existing key listeners to prevent starting game during tutorial
-    this.input.keyboard.removeAllListeners();
-    if (this.switchTimer) { this.switchTimer.remove(); this.switchTimer = null; }
-
-    this.tutorialStep = 0;
-    const tips = [
-      'Arrow keys or WASD to move',
-      'Eat 🟡 rats to grow longer',
-      'Lure 🔴 baddies into your body\nto kill them — head-on hits hurt YOU',
-      'Kill all baddies to reveal\nthe staircase 🔵'
-    ];
-
-    const cam = this.cameras.main;
-    const cx = cam.width / 2;
-    const cy = cam.height / 2;
-
-    // Semi-transparent overlay
-    this.tutorialOverlay = this.add.rectangle(cx, cy, cam.width + 200, cam.height + 200, 0x000000, 0.85).setDepth(300);
-
-    this.tutorialTitle = this.add.text(cx, cy - 80, 'HOW TO PLAY', {
-      fontFamily: 'monospace', fontSize: '28px', color: '#00ff00'
-    }).setOrigin(0.5).setDepth(301);
-
-    this.tutorialTip = this.add.text(cx, cy, tips[0], {
-      fontFamily: 'monospace', fontSize: '20px', color: '#ffffff', align: 'center', lineSpacing: 6
-    }).setOrigin(0.5).setDepth(301);
-
-    this.tutorialProgress = this.add.text(cx, cy + 70, '1 / 4', {
-      fontFamily: 'monospace', fontSize: '14px', color: '#555555'
-    }).setOrigin(0.5).setDepth(301);
-
-    this.tutorialPrompt = this.add.text(cx, cy + 100, 'Press SPACE or ENTER to continue', {
-      fontFamily: 'monospace', fontSize: '14px', color: '#888888'
-    }).setOrigin(0.5).setDepth(301);
-
-    // Pulse the prompt
-    this.tweens.add({
-      targets: this.tutorialPrompt, alpha: 0.3,
-      duration: 600, yoyo: true, repeat: -1
-    });
-
-    const advanceTutorial = (event) => {
-      if (event.key !== ' ' && event.key !== 'Enter') return;
-      this.tutorialStep++;
-      if (this.tutorialStep >= tips.length) {
-        // Tutorial complete
-        try { localStorage.setItem('snakelike_tutorial_seen', '1'); } catch(e) {}
-        this.closeTutorial();
-        return;
-      }
-      this.tutorialTip.setText(tips[this.tutorialStep]);
-      this.tutorialProgress.setText(`${this.tutorialStep + 1} / ${tips.length}`);
-    };
-
-    this.input.keyboard.on('keydown', advanceTutorial);
-  }
-
-  closeTutorial() {
-    if (this.tutorialOverlay) { this.tutorialOverlay.destroy(); this.tutorialOverlay = null; }
-    if (this.tutorialTitle) { this.tutorialTitle.destroy(); this.tutorialTitle = null; }
-    if (this.tutorialTip) { this.tutorialTip.destroy(); this.tutorialTip = null; }
-    if (this.tutorialProgress) { this.tutorialProgress.destroy(); this.tutorialProgress = null; }
-    if (this.tutorialPrompt) { this.tutorialPrompt.destroy(); this.tutorialPrompt = null; }
-    // Re-add the start listener
-    this.input.keyboard.removeAllListeners();
-    this.addStartListener();
-    // Restart the leaderboard switch timer
-    this.switchTimer = this.time.delayedCall(3000, () => {
-      this.showTitleLeaderboard();
-    });
   }
 
   update(time, delta) {
