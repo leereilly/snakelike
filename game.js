@@ -1425,7 +1425,7 @@ class TransitionScene extends Phaser.Scene {
     const overlay = this.add.rectangle(cx, cy, W + 200, H + 200, 0x000000, 0.85).setDepth(200);
 
     const msgText = this.add.text(cx, cy - 20,
-      'You descend into the castle dungeon.\nThe walls are etched with murals\nof ancient sultans...', {
+      'You descend into the castle dungeon.\nThe walls are etched with murals\nof ancient sssultans...', {
       fontFamily: 'monospace',
       fontSize: '18px',
       color: '#ffcc00',
