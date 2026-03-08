@@ -539,24 +539,28 @@ function generateDungeon(mapW, mapH, level) {
     return null;
   }
 
-  // Lava: 1-2 per level, placed in corridors
-  const numLava = 1 + Math.floor(Math.random() * 2);
-  for (let i = 0; i < numLava; i++) {
-    const pos = randomCorridorFloor();
-    if (pos) {
-      lavaTiles.push(pos);
-      occupied.add(pos.y * mapW + pos.x);
+  // Lava: 1-2 per level, placed in corridors (not on level 1)
+  if (level > 1) {
+    const numLava = 1 + Math.floor(Math.random() * 2);
+    for (let i = 0; i < numLava; i++) {
+      const pos = randomCorridorFloor();
+      if (pos) {
+        lavaTiles.push(pos);
+        occupied.add(pos.y * mapW + pos.x);
+      }
     }
   }
 
-  // Traps: 1-3 per level, spread across different rooms
-  const numTraps = 1 + Math.floor(Math.random() * 3);
-  for (let i = 0; i < numTraps; i++) {
-    const room = rooms[Math.floor(Math.random() * rooms.length)];
-    const pos = randomFloorInRoom(room);
-    if (pos) {
-      trapTiles.push(pos);
-      occupied.add(pos.y * mapW + pos.x);
+  // Traps: 1-3 per level, spread across different rooms (not on level 1)
+  if (level > 1) {
+    const numTraps = 1 + Math.floor(Math.random() * 3);
+    for (let i = 0; i < numTraps; i++) {
+      const room = rooms[Math.floor(Math.random() * rooms.length)];
+      const pos = randomFloorInRoom(room);
+      if (pos) {
+        trapTiles.push(pos);
+        occupied.add(pos.y * mapW + pos.x);
+      }
     }
   }
 
@@ -1596,7 +1600,7 @@ class GameOverScene extends Phaser.Scene {
 
     statLines.forEach((stat, i) => {
       const timer = this.time.delayedCall(400 + i * 350, () => {
-        const pb = newBests[stat.key] ? '  ★ NEW BEST!' : '';
+        const pb = newBests[stat.key] ? '  * NEW BEST!' : '';
         const color = newBests[stat.key] ? '#ffff00' : '#cccccc';
         const t = this.add.text(cx, startY + i * lineH, `${stat.label}: ${stat.value}${pb}`, {
           fontFamily: 'monospace', fontSize: '16px', color: color
@@ -1625,7 +1629,7 @@ class GameOverScene extends Phaser.Scene {
       const shown = this._statTexts.length;
       for (let i = shown; i < statLines.length; i++) {
         const stat = statLines[i];
-        const pb = newBests[stat.key] ? '  ★ NEW BEST!' : '';
+        const pb = newBests[stat.key] ? '  * NEW BEST!' : '';
         const color = newBests[stat.key] ? '#ffff00' : '#cccccc';
         this.add.text(cx, startY + i * lineH, `${stat.label}: ${stat.value}${pb}`, {
           fontFamily: 'monospace', fontSize: '16px', color: color
@@ -1647,7 +1651,12 @@ class GameOverScene extends Phaser.Scene {
       if (qualifies) {
         this.showNameEntry(cx, topY, entries);
       } else {
-        this.showLeaderboard(cx, topY, entries);
+        // Clear all text except "GAME OVER" title, then show leaderboard below it
+        this.children.list.filter(c => c.type === 'Text').forEach(t => {
+          if (t.text !== 'GAME OVER') t.destroy();
+        });
+        const lbY = 100;
+        this.showLeaderboard(cx, lbY, entries);
         this.addRestartListener();
       }
     }).catch(() => {
@@ -1704,9 +1713,12 @@ class GameOverScene extends Phaser.Scene {
       finalEntries = entries;
     }
 
-    // Clear name entry UI and show leaderboard in same area
-    this.nameText.destroy();
-    this.showLeaderboard(cx, topY, finalEntries);
+    // Clear all text except "GAME OVER" title, then show leaderboard below it
+    this.children.list.filter(c => c.type === 'Text').forEach(t => {
+      if (t.text !== 'GAME OVER') t.destroy();
+    });
+    const lbY = 100;
+    this.showLeaderboard(cx, lbY, finalEntries);
     this.addRestartListener();
   }
 
@@ -2182,10 +2194,10 @@ class GameScene extends Phaser.Scene {
     const canFire = this.snake.length >= 3 && this.direction;
     let hudStr = `Level: ${this.level}  Rats: ${aliveRats}  Baddies: ${aliveBaddies}  Length: ${this.snake.length}  ${canFire ? '[SPACE:Fire]' : ''}`;
     if (this.boss) {
-      hudStr += `  Boss: ${'♥'.repeat(this.boss.hp)}${'♡'.repeat(this.boss.maxHp - this.boss.hp)}`;
+      hudStr += `  Boss: ${'#'.repeat(this.boss.hp)}${'-'.repeat(this.boss.maxHp - this.boss.hp)}`;
     }
     if (this.activePowerup) {
-      const icons = { speed: '⚡', shield: '🛡️', phase: '👻' };
+      const icons = { speed: 'SPD', shield: 'SHD', phase: 'PHS' };
       const secs = Math.ceil(this.activePowerup.remaining / 1000);
       hudStr += `  ${icons[this.activePowerup.type]} ${secs}s`;
     }

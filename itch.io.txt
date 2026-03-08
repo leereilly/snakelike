@@ -1,0 +1,111 @@
+<h2>🐍 🏰 Snakelike</h2>
+
+<p>A <strong>Snake × Roguelike</strong> mashup built with <a href="https://phaser.io/">Phaser 3</a> and GitHub Copilot Coding Agent. Guide your snake through procedurally generated dungeons, eat rats to grow, avoid baddies, and descend deeper via staircases. Built for the <a href="https://itch.io/jam/7drl-challenge-2026">7DRL Challenge 2026</a>.</p>
+
+<h3>Lore</h3>
+
+<p>Deep beneath the surface lies a dark dungeon full of rats, monsters, and forgotten treasure. A small hungry snake begins its journey there, slithering through tight stone halls and hunting rats to survive. Each rat it eats makes it grow longer and stronger, letting it face bigger enemies that guard the deeper rooms. The farther the snake travels, the more dangerous the dungeon becomes, with strange creatures and powerful bosses waiting below. What starts as a simple hunt for food slowly turns into a descent through the entire dungeon as the growing serpent fights, coils, and devours its way toward the darkest depths.</p>
+
+<h3>Features</h3>
+
+<ul>
+<li><strong>Procedural dungeons</strong> BSP-generated maps that grow larger each level</li>
+<li><strong>Fog of war</strong> raycasting FOV reveals the dungeon as you explore</li>
+<li><strong>Enemy AI</strong> baddies patrol corridors; a 2×2 boss hunts you every 5th level</li>
+<li><strong>Power-ups</strong> speed, shield, and phase pickups to turn the tide</li>
+<li><strong>Hazards</strong> lava tiles and spike traps lurk in the darkness</li>
+<li><strong>Projectiles</strong> fire your own tail segments to pierce enemies from range</li>
+<li><strong>Progression</strong> clear all enemies to unlock the staircase to the next level</li>
+<li><strong>Retro audio</strong> synthesized sound effects via the Web Audio API</li>
+</ul>
+
+<h3>How to Play</h3>
+
+<table>
+<tr><th>Key</th><th>Action</th></tr>
+<tr><td>Arrow keys / WASD</td><td>Change direction</td></tr>
+<tr><td>Space</td><td>Fire projectile (costs 2 tail segments; need length ≥ 3)</td></tr>
+<tr><td>Any key</td><td>Start / Restart after Game Over</td></tr>
+</table>
+
+<p>Move through the dungeon, eat <strong>rats</strong> to grow, and kill every <strong>baddie</strong> (and the <strong>boss</strong>, on boss levels) to reveal the <strong>staircase</strong> to the next floor. Your snake's length is your health, each hit costs you a segment. If you're down to a single segment and take damage, it's game over.</p>
+
+<h3>Combat Tips</h3>
+
+<ul>
+<li><strong>Body kills</strong> baddies that walk into your body die instantly. Lure them in!</li>
+<li><strong>Projectiles</strong> press <strong>Space</strong> to fire a piercing shot from your head. It costs 2 tail segments but destroys every baddie in its path and chips 1 HP off the boss.</li>
+<li><strong>Shield</strong> pick up the <code>+</code> power-up to absorb one free hit.</li>
+<li><strong>Phase</strong> the <code>~</code> power-up lets you pass through walls for 3 seconds. Great for escapes.</li>
+<li><strong>Speed</strong> the <code>*</code> power-up doubles your movement speed for 5 seconds.</li>
+</ul>
+
+<h3>Bestiary</h3>
+
+<h4>Enemies</h4>
+
+<table>
+<tr><th>Symbol</th><th>Name</th><th>Color</th><th>HP</th><th>Behavior</th></tr>
+<tr><td><code>B</code></td><td>Baddie</td><td>🔴</td><td>1</td><td>Patrols corridors, reverses on walls, shifts sideways. Contact with your head costs 1 segment.</td></tr>
+<tr><td><code>D</code></td><td>Boss</td><td>🟠</td><td>3</td><td>2×2 tile dragon that chases your head. Appears every 5th level. Flashes white when hit.</td></tr>
+</table>
+
+<ul>
+<li><strong>Baddies</strong> spawn at a rate of <code>4 + level</code> per floor (halved on boss levels).</li>
+<li><strong>Bosses</strong> appear on levels 5, 10, 15, … and must be defeated alongside all baddies before the staircase opens.</li>
+</ul>
+
+<h4>Collectibles</h4>
+
+<table>
+<tr><th>Symbol</th><th>Name</th><th>Color</th><th>Effect</th></tr>
+<tr><td><code>r</code></td><td>Rat</td><td>🟡</td><td>Eat to grow by 1 segment. Rats spawn at a rate of <code>4 + level</code> per floor.</td></tr>
+</table>
+
+<h4>Power-ups</h4>
+
+<p>Three power-ups spawn on every floor:</p>
+
+<table>
+<tr><th>Symbol</th><th>Name</th><th>Color</th><th>Duration</th><th>Effect</th></tr>
+<tr><td><code>*</code></td><td>Speed</td><td>🔵</td><td>5 s</td><td>Doubles movement speed.</td></tr>
+<tr><td><code>+</code></td><td>Shield</td><td>🔵</td><td>30 s</td><td>Absorbs the next hit from any source.</td></tr>
+<tr><td><code>~</code></td><td>Phase</td><td>🟣</td><td>3 s</td><td>Pass through walls, teleports to the next open floor tile in your direction.</td></tr>
+</table>
+
+<p>Active power-ups and their remaining time are shown in the HUD.</p>
+
+<h4>Hazards</h4>
+
+<table>
+<tr><th>Symbol</th><th>Name</th><th>Color</th><th>Effect</th></tr>
+<tr><td><code>~</code></td><td>Lava</td><td>🟠</td><td>Instant death on contact.</td></tr>
+<tr><td><code>^</code></td><td>Trap</td><td>🟣</td><td>Removes 1 segment on contact, then disappears. Fatal if you only have 1 segment.</td></tr>
+</table>
+
+<p>1–3 of each hazard type are scattered across every floor.</p>
+
+<h4>Dungeon Features</h4>
+
+<table>
+<tr><th>Symbol</th><th>Name</th><th>Color</th><th>Details</th></tr>
+<tr><td><code>&gt;</code></td><td>Staircase</td><td>🔵</td><td>Appears in the room farthest from you once all enemies are defeated. Step on it to descend.</td></tr>
+<tr><td><code>#</code></td><td>Wall</td><td>Grey</td><td>Impassable (unless you have the Phase power-up).</td></tr>
+<tr><td><code>.</code></td><td>Floor</td><td>Dark grey</td><td>Safe to traverse.</td></tr>
+</table>
+
+<h3>Scoring</h3>
+
+<p>Your score is calculated using an additive formula:</p>
+
+<p><code>Score = (Level × 100) + (Baddies Killed × 15) + (Max Snake Length × 5)</code></p>
+
+<table>
+<tr><th>Action</th><th>Points</th></tr>
+<tr><td>Reach a new dungeon level</td><td>+100 per level</td></tr>
+<tr><td>Kill a baddie</td><td>+15 per kill</td></tr>
+<tr><td>Kill a boss</td><td>+100 bonus</td></tr>
+<tr><td>Grow your snake</td><td>+5 per unit of max length</td></tr>
+</table>
+
+<p>Every action matters: kill baddies, eat rats to grow, and push deeper into the dungeon. There's an online leaderboard to share your glory!</p>
