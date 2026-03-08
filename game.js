@@ -801,15 +801,11 @@ class TitleScene extends Phaser.Scene {
     }).setOrigin(0.5);
 
     this.add.text(cx, cy - 5, 'Descend the Endless Dungeon. Consume. Grow. Survive.', {
-      fontFamily: 'monospace', fontSize: '12px', color: '#666666'
+      fontFamily: 'monospace', fontSize: '14px', color: '#666666'
     }).setOrigin(0.5);
 
-    this.promptText = this.add.text(cx, cy + 30, 'Press any key to start', {
-      fontFamily: 'monospace', fontSize: '18px', color: '#888888'
-    }).setOrigin(0.5);
-
-    this.add.text(cx, cy + 70, 'WASD or Arrow Keys to move', {
-      fontFamily: 'monospace', fontSize: '14px', color: '#555555'
+    this.promptText = this.add.text(cx, cy + 40, 'Press any key to start', {
+      fontFamily: 'monospace', fontSize: '16px', color: '#888888'
     }).setOrigin(0.5);
 
     this.addStartListener();
@@ -830,7 +826,7 @@ class TitleScene extends Phaser.Scene {
     }).setOrigin(0.5);
 
     this.add.text(cx, cy - 5, 'Descend the Endless Dungeon. Consume. Grow. Survive.', {
-      fontFamily: 'monospace', fontSize: '12px', color: '#666666'
+      fontFamily: 'monospace', fontSize: '14px', color: '#666666'
     }).setOrigin(0.5);
 
     const entries = this.leaderboardEntries || [];
@@ -860,7 +856,7 @@ class TitleScene extends Phaser.Scene {
 
     const bottom = this.cameras.main.height - 30;
     this.promptText = this.add.text(cx, bottom, 'Press any key to start', {
-      fontFamily: 'monospace', fontSize: '18px', color: '#888888'
+      fontFamily: 'monospace', fontSize: '16px', color: '#888888'
     }).setOrigin(0.5);
 
     this.addStartListener();
@@ -1204,11 +1200,8 @@ class TransitionScene extends Phaser.Scene {
       else titleLetters.push({ obj: t, idx: i });
     }
 
-    const prompt = this.add.text(cx, cy + 30, 'Press any key to start', {
-      fontFamily: 'monospace', fontSize: '18px', color: '#888888'
-    }).setOrigin(0.5);
-    const instruct = this.add.text(cx, cy + 70, 'WASD or Arrow Keys to move', {
-      fontFamily: 'monospace', fontSize: '14px', color: '#555555'
+    const prompt = this.add.text(cx, cy + 40, 'Press any key to start', {
+      fontFamily: 'monospace', fontSize: '16px', color: '#888888'
     }).setOrigin(0.5);
 
     // ======== ANIMATE ========
